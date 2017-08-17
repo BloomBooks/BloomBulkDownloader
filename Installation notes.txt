@@ -1,0 +1,5 @@
+Installing AWS CLI
+
+1. Download Windows 64-bit installer from:
+   http://docs.aws.amazon.com/cli/latest/userguide/awscli-install-windows.html#install-msi-on-windows
+   It installs to \Program Files\Amazon\AWSCLI\.
