@@ -14,7 +14,7 @@ namespace Bloom.WebLibraryIntegration
 	}
 
 	// We're running from a console, so we pass this.
-	class ConsoleProgress : IProgressDialog
+	class ConsoleProgress : IProgressDialog, IDisposable
 	{
 		private int _progress;
 		public int ProgressRangeMaximum { get; set; }
@@ -35,6 +35,10 @@ namespace Bloom.WebLibraryIntegration
 		public object Invoke(Delegate method)
 		{
 			return method.Method.Invoke(method.Target, new object[0]);
+		}
+
+		public void Dispose()
+		{
 		}
 	}
 }
