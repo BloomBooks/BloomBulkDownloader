@@ -1,19 +1,31 @@
 ﻿using System;
-using System.Collections.Generic;
+using CommandLine;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Amazon.Auth.AccessControlPolicy.ActionIdentifiers;
-using Amazon.Runtime.Internal.Auth;
-using Amazon.S3;
 
-namespace BloomBulkDownloader
+namespace Bloom.WebLibraryIntegration
 {
 	class Program
 	{
-		static void Main(string[] args)
+		static int Main(string[] args)
 		{
-			var s3 = new AmazonS3Client();
+			if (args.Length > 0)
+			{
+				var parserResult = Parser.Default.ParseArguments<BulkDownloadOptions>(args);
+				var parsed = parserResult as Parsed<BulkDownloadOptions>;
+				if (parsed != null)
+				{
+					using (var consoleProgress = new ConsoleProgress())
+					{
+						consoleProgress.ProgressRangeMaximum = 50;
+						Console.WriteLine("Commencing download from: "+ parsed.Value.S3BucketName +
+							" to: "+parsed.Value.FinalDestinationPath);
+						var result = BulkDownloadCommand.Handle(parsed.Value, consoleProgress);
+						Console.WriteLine(result == 0 ? "Success!" : "Failed!");
+						return result;
+					}
+				}
+			}
+			return -1;
 		}
 	}
 }
