@@ -1,6 +1,11 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
+using RestSharp;
+using SIL.IO;
 
 namespace Bloom.WebLibraryIntegration
 {
@@ -12,24 +17,56 @@ namespace Bloom.WebLibraryIntegration
 	{
 		public static int Handle(BulkDownloadOptions options, IProgressDialog progress)
 		{
-			var opts = options;
 			// This task will be all the program does. We need to do enough setup so that
 			// the download code can work.
 			try
 			{
 				Console.WriteLine("\nSyncing local bucket repo");
-				progress.Progress += 1;
-				var cmdline = GetSyncCommandFromOptions(opts);
-				if (!Directory.Exists(opts.SyncFolder))
+				var cmdline = GetSyncCommandFromOptions(options);
+				if (!Directory.Exists(options.SyncFolder))
 				{
-					Directory.CreateDirectory(opts.SyncFolder);
+					Directory.CreateDirectory(options.SyncFolder);
 				}
 				Console.WriteLine("\naws " + cmdline);
-				var process = Process.Start("aws", cmdline);
-				Console.WriteLine("\nstarting filtered copy to " + opts.FinalDestinationPath);
-				//transfer.HandleDownloadWithoutProgress(options.Url, options.DestinationPath);
-				Console.WriteLine(("\nprocess complete\n"));
-				return 0;
+				var process = Process.Start(new ProcessStartInfo
+				{
+					Arguments = cmdline,
+					FileName = "aws",
+					UseShellExecute = false,
+					RedirectStandardError = true,
+					RedirectStandardOutput = true
+				});
+				Console.WriteLine("\nWorking...\n");
+				// Read the error stream first and then wait.
+				var error = process.StandardError.ReadToEnd();
+				var output = process.StandardOutput.ReadToEnd();
+				process.WaitForExit();
+				if (process.ExitCode != 0)
+				{
+					throw new ApplicationException("\nSync process failed.\n" + error);
+				}
+				if (string.IsNullOrWhiteSpace(output))
+				{
+					Console.WriteLine(options.SyncFolder + " was already up-to-date.\n");
+				}
+				else
+				{
+					Console.WriteLine(output);
+				}
+				if (options.DryRun)
+				{
+					Console.WriteLine("\nDry run completed... Can't continue to phase 2 with dry run.");
+					return 0;
+				}
+				if (Directory.Exists(options.FinalDestinationPath))
+				{
+					Console.WriteLine("Deleting final destination directory: " + options.FinalDestinationPath);
+					RobustIO.DeleteDirectory(options.FinalDestinationPath, true);
+				}
+				Console.WriteLine("Creating empty directory at: " + options.FinalDestinationPath);
+				Directory.CreateDirectory(options.FinalDestinationPath);
+				Console.WriteLine("\nstarting filtered copy to " + options.FinalDestinationPath);
+				return FilteredCopy(options, progress);
 			}
 			catch (Exception ex)
 			{
@@ -52,8 +89,23 @@ namespace Bloom.WebLibraryIntegration
 			{
 				cmdLineArgs += " --dryrun";
 			}
-
 			return cmdLineArgs;
+		}
+
+		private static int FilteredCopy(BulkDownloadOptions options, IProgressDialog progress)
+		{
+			var client = new RestClient(options.ParseServer);
+			var request = new RestRequest("parse/classes/books", Method.GET);
+			request.AddHeader("X-Parse-Application-Id", options.ParseAppId);
+			request.AddHeader("X-Parse-REST-API-Key", options.RestApiKey);
+			request.RequestFormat = DataFormat.Json;
+
+			var response = client.Execute(request);
+			var jsonResponse = response.Content;
+
+			var destination = options.FinalDestinationPath;
+			Console.WriteLine("\nprocess complete\n");
+			return 0;
 		}
 	}
 }

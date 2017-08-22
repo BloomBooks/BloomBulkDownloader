@@ -20,11 +20,13 @@ namespace Bloom.WebLibraryIntegration
 							" to: "+parsed.Value.FinalDestinationPath);
 						var result = BulkDownloadCommand.Handle(parsed.Value, consoleProgress);
 						Console.WriteLine(result == 0 ? "Success!" : "Failed!");
+						Console.ReadKey(true);
 						return result;
 					}
 				}
 			}
 			Console.WriteLine("BloomBulkDownloader requires command line arguments.");
+			Console.ReadKey(true);
 			return 1;
 		}
 	}
