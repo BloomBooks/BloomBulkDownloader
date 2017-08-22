@@ -8,6 +8,9 @@ namespace Bloom.WebLibraryIntegration
 	// (using the beta of commandline 2.0)
 	public class BulkDownloadOptions
 	{
+		public const string SandboxBucketName = "BloomLibraryBooks-Sandbox";
+		public const string ProductionBucketName = "BloomLibraryBooks";
+
 		[Value(0, MetaName = "destination", HelpText = "Final filtered destination path for books", Required = true)]
 		public string FinalDestinationPath { get; set; }
 
@@ -29,14 +32,17 @@ namespace Bloom.WebLibraryIntegration
 					case BucketCategory.undefined:
 						break;
 					case BucketCategory.production:
-						return BloomS3Client.ProductionBucketName;
+						return ProductionBucketName;
 					case BucketCategory.sandbox:
-						return BloomS3Client.SandboxBucketName;
+						return SandboxBucketName;
 				}
 				throw new ApplicationException("Trying to read S3BucketName before Bucket category is defined...");
 			}
 		}
 
+		/// <summary>
+		/// The result of the -b command line option. Used in switches to simplify processing.
+		/// </summary>
 		public enum BucketCategory
 		{
 			undefined,
@@ -44,6 +50,10 @@ namespace Bloom.WebLibraryIntegration
 			production,
 		}
 
+		/// <summary>
+		/// Gets the destination folder for the initial sync phase.
+		/// N.B. Check for existence before accessing.
+		/// </summary>
 		public string SyncFolder
 		{
 			get

@@ -55,8 +55,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AccessKeys.cs" />
-    <Compile Include="BloomS3Client.cs" />
     <Compile Include="BulkDownload.cs" />
     <Compile Include="BulkDownloadOptions.cs" />
     <Compile Include="IProgressDialog.cs" />

@@ -1,6 +1,5 @@
 ﻿using System;
 using CommandLine;
-using System.Linq;
 
 namespace Bloom.WebLibraryIntegration
 {
@@ -25,7 +24,8 @@ namespace Bloom.WebLibraryIntegration
 					}
 				}
 			}
-			return -1;
+			Console.WriteLine("BloomBulkDownloader requires command line arguments.");
+			return 1;
 		}
 	}
 }
