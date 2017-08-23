@@ -1,13 +1,16 @@
 ﻿using System;
 using CommandLine;
 
-namespace Bloom.WebLibraryIntegration
+namespace BloomBulkDownloader
 {
 
 	// Used with https://github.com/gsscoder/commandline, which we get via nuget.
 	// (using the beta of commandline 2.0)
 	public class BulkDownloadOptions
 	{
+		public const string SandboxBucketName = "BloomLibraryBooks-Sandbox";
+		public const string ProductionBucketName = "BloomLibraryBooks";
+
 		[Value(0, MetaName = "destination", HelpText = "Final filtered destination path for books", Required = true)]
 		public string FinalDestinationPath { get; set; }
 
@@ -29,14 +32,17 @@ namespace Bloom.WebLibraryIntegration
 					case BucketCategory.undefined:
 						break;
 					case BucketCategory.production:
-						return BloomS3Client.ProductionBucketName;
+						return ProductionBucketName;
 					case BucketCategory.sandbox:
-						return BloomS3Client.SandboxBucketName;
+						return SandboxBucketName;
 				}
 				throw new ApplicationException("Trying to read S3BucketName before Bucket category is defined...");
 			}
 		}
 
+		/// <summary>
+		/// The result of the -b command line option. Used in switches to simplify processing.
+		/// </summary>
 		public enum BucketCategory
 		{
 			undefined,
@@ -44,11 +50,15 @@ namespace Bloom.WebLibraryIntegration
 			production,
 		}
 
+		/// <summary>
+		/// Gets the destination folder for the initial sync phase.
+		/// N.B. Check for existence before accessing.
+		/// </summary>
 		public string SyncFolder
 		{
 			get
 			{
-				const string finalFolder = "BloomBulkDownloader-SyncFolder";
+				const string finalFolder = "C:\\BloomBulkDownloader-SyncFolder";
 				switch (Bucket)
 				{
 					case BucketCategory.undefined:
@@ -59,6 +69,103 @@ namespace Bloom.WebLibraryIntegration
 						return finalFolder + "-sandbox";
 				}
 				throw new ApplicationException("Trying to read SyncFolder before Bucket category is defined...");
+			}
+		}
+
+		/// <summary>
+		/// Gets the appropriate Parse server (Production or Sandbox).
+		/// Used for determining if a book is deleted or not (and other things).
+		/// </summary>
+		public string ParseServer
+		{
+			get
+			{
+				const string parseServerProd = "https://bloom-parse-server-production.azurewebsites.net";
+				const string parseServerSandbox = "https://bloom-parse-server-develop.azurewebsites.net";
+				switch (Bucket)
+				{
+					case BucketCategory.undefined:
+						break;
+					case BucketCategory.production:
+						return parseServerProd;
+					case BucketCategory.sandbox:
+						return parseServerSandbox;
+				}
+				throw new ApplicationException("Trying to read ParseServer before Bucket category is defined...");
+			}
+		}
+
+		/// <summary>
+		/// Get the appropriate Parse AppId (Production or Sandbox).
+		/// </summary>
+		public string ParseAppId
+		{
+			get
+			{
+				const string appIdProd = "R6qNTeumQXjJCMutAJYAwPtip1qBulkFyLefkCE5";
+				const string appIdSandbox = "yrXftBF6mbAuVu3fO6LnhCJiHxZPIdE7gl1DUVGR";
+				switch (Bucket)
+				{
+					case BucketCategory.undefined:
+						break;
+					case BucketCategory.production:
+						return appIdProd;
+					case BucketCategory.sandbox:
+						return appIdSandbox;
+				}
+				throw new ApplicationException("Trying to read ParseAppId before Bucket category is defined...");
+			}
+		}
+
+		/// <summary>
+		/// Get the appropriate Rest Api Key (Production or Sandbox).
+		/// </summary>
+		public string RestApiKey
+		{
+			get
+			{
+				const string restApiKeyProd = "P6dtPT5Hg8PmBCOxhyN9SPmaJ8W4DcckyW0EZkIx";
+				const string restApiKeySandbox = "KZA7c0gAuwTD6kZHyO5iZm0t48RplaU7o3SHLKnj";
+
+				switch (Bucket)
+				{
+					case BucketCategory.undefined:
+						break;
+					case BucketCategory.production:
+						return restApiKeyProd;
+					case BucketCategory.sandbox:
+						return restApiKeySandbox;
+				}
+				throw new ApplicationException("Trying to read RestApiKey before Bucket category is defined...");
+			}
+		}
+
+		/// <summary>
+		/// Get the appropriate Email address for a trial run (Production or Sandbox).
+		/// I (gjm) didn't have any Sandbox books "inCirculation".
+		/// </summary>
+		public string TrialEmail
+		{
+			get
+			{
+				const string trialEmailProduction = "gordon_martin@sil.org";
+				const string trialEmailSandbox = "len_wallstrom@sil.org";
+
+				if (!TrialRun)
+				{
+					return string.Empty;
+				}
+
+				switch (Bucket)
+				{
+					case BucketCategory.undefined:
+						break;
+					case BucketCategory.production:
+						return trialEmailProduction;
+					case BucketCategory.sandbox:
+						return trialEmailSandbox;
+				}
+				throw new ApplicationException("Trying to read TrialEmail before Bucket category is defined...");
 			}
 		}
 	}

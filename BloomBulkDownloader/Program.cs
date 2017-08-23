@@ -1,8 +1,7 @@
 ﻿using System;
 using CommandLine;
-using System.Linq;
 
-namespace Bloom.WebLibraryIntegration
+namespace BloomBulkDownloader
 {
 	class Program
 	{
@@ -21,11 +20,14 @@ namespace Bloom.WebLibraryIntegration
 							" to: "+parsed.Value.FinalDestinationPath);
 						var result = BulkDownloadCommand.Handle(parsed.Value, consoleProgress);
 						Console.WriteLine(result == 0 ? "Success!" : "Failed!");
+						Console.ReadKey(true);
 						return result;
 					}
 				}
 			}
-			return -1;
+			Console.WriteLine("BloomBulkDownloader requires command line arguments.");
+			Console.ReadKey(true);
+			return 1;
 		}
 	}
 }
