@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Bloom.WebLibraryIntegration
+namespace BloomBulkDownloader
 {
 	/// <summary>
 	/// Interface that we wish ProgressDialog implemented

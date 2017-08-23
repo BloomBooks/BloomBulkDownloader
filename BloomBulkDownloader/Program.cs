@@ -1,7 +1,7 @@
 ﻿using System;
 using CommandLine;
 
-namespace Bloom.WebLibraryIntegration
+namespace BloomBulkDownloader
 {
 	class Program
 	{

@@ -1,7 +1,7 @@
 ﻿using System;
 using CommandLine;
 
-namespace Bloom.WebLibraryIntegration
+namespace BloomBulkDownloader
 {
 
 	// Used with https://github.com/gsscoder/commandline, which we get via nuget.
@@ -117,6 +117,9 @@ namespace Bloom.WebLibraryIntegration
 			}
 		}
 
+		/// <summary>
+		/// Get the appropriate Rest Api Key (Production or Sandbox).
+		/// </summary>
 		public string RestApiKey
 		{
 			get
@@ -134,6 +137,35 @@ namespace Bloom.WebLibraryIntegration
 						return restApiKeySandbox;
 				}
 				throw new ApplicationException("Trying to read RestApiKey before Bucket category is defined...");
+			}
+		}
+
+		/// <summary>
+		/// Get the appropriate Email address for a trial run (Production or Sandbox).
+		/// I (gjm) didn't have any Sandbox books "inCirculation".
+		/// </summary>
+		public string TrialEmail
+		{
+			get
+			{
+				const string trialEmailProduction = "gordon_martin@sil.org";
+				const string trialEmailSandbox = "len_wallstrom@sil.org";
+
+				if (!TrialRun)
+				{
+					return string.Empty;
+				}
+
+				switch (Bucket)
+				{
+					case BucketCategory.undefined:
+						break;
+					case BucketCategory.production:
+						return trialEmailProduction;
+					case BucketCategory.sandbox:
+						return trialEmailSandbox;
+				}
+				throw new ApplicationException("Trying to read TrialEmail before Bucket category is defined...");
 			}
 		}
 	}

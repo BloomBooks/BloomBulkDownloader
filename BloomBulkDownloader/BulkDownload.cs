@@ -1,13 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Net;
-using System.Net.Http;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
 using RestSharp;
 using SIL.IO;
 
-namespace Bloom.WebLibraryIntegration
+namespace BloomBulkDownloader
 {
 	/// <summary>
 	/// This command syncs a local folder with an S3 bucket and then copies certain books to the specified destination.
@@ -34,25 +33,25 @@ namespace Bloom.WebLibraryIntegration
 					FileName = "aws",
 					UseShellExecute = false,
 					RedirectStandardError = true,
-					RedirectStandardOutput = true
+					//RedirectStandardOutput = true
 				});
 				Console.WriteLine("\nWorking...\n");
 				// Read the error stream first and then wait.
 				var error = process.StandardError.ReadToEnd();
-				var output = process.StandardOutput.ReadToEnd();
+				//var output = process.StandardOutput.ReadToEnd();
 				process.WaitForExit();
 				if (process.ExitCode != 0)
 				{
 					throw new ApplicationException("\nSync process failed.\n" + error);
 				}
-				if (string.IsNullOrWhiteSpace(output))
-				{
-					Console.WriteLine(options.SyncFolder + " was already up-to-date.\n");
-				}
-				else
-				{
-					Console.WriteLine(output);
-				}
+				//if (string.IsNullOrWhiteSpace(output))
+				//{
+				//	Console.WriteLine(options.SyncFolder + " was already up-to-date.\n");
+				//}
+				//else
+				//{
+				//	Console.WriteLine(output);
+				//}
 				if (options.DryRun)
 				{
 					Console.WriteLine("\nDry run completed... Can't continue to phase 2 with dry run.");
@@ -82,7 +81,7 @@ namespace Bloom.WebLibraryIntegration
 			cmdLineArgs += opts.S3BucketName;
 			if (opts.TrialRun)
 			{
-				cmdLineArgs += "/gordon_martin@sil.org ";
+				cmdLineArgs += "/" + opts.TrialEmail + " ";
 			}
 			cmdLineArgs += opts.SyncFolder;
 			if (opts.DryRun)
@@ -94,18 +93,46 @@ namespace Bloom.WebLibraryIntegration
 
 		private static int FilteredCopy(BulkDownloadOptions options, IProgressDialog progress)
 		{
+			var destination = options.FinalDestinationPath;
+			var records = GetParseDbInCirculationJson(options);
+			var filteredInstanceIds = new HashSet<string>();
+
+			foreach (var parseRecord in records)
+			{
+				if (options.TrialRun && parseRecord.Uploader.Email != options.TrialEmail)
+					continue;
+				filteredInstanceIds.Add(parseRecord.InstanceId);
+			}
+
+			// Copy to 'destination' folder all folders inside of folders whose names match one of the 'filteredInstanceIds'.
+
+			Console.WriteLine("\nFiltered copy complete\n");
+			return 0;
+		}
+
+		private static IEnumerable<DownloaderParseRecord> GetParseDbInCirculationJson(BulkDownloadOptions options)
+		{
+			const int limitParam = 2000;
 			var client = new RestClient(options.ParseServer);
 			var request = new RestRequest("parse/classes/books", Method.GET);
 			request.AddHeader("X-Parse-Application-Id", options.ParseAppId);
 			request.AddHeader("X-Parse-REST-API-Key", options.RestApiKey);
+			request.AddParameter("limit", limitParam.ToString());
+			request.AddParameter("count", "1");
+			request.AddParameter("include", "langPointers");
+			request.AddParameter("include", "uploader");
+			request.AddParameter("where", "{\"inCirculation\":true}");
 			request.RequestFormat = DataFormat.Json;
 
 			var response = client.Execute(request);
-			var jsonResponse = response.Content;
-
-			var destination = options.FinalDestinationPath;
-			Console.WriteLine("\nprocess complete\n");
-			return 0;
+			var mainObject = JsonConvert.DeserializeObject<MainParseDownloaderObject>(response.Content);
+			var records = mainObject.Results;
+			var count = mainObject.Count;
+			if (count == limitParam)
+			{
+				throw new ApplicationException("Need to update our program to handle more than 2000 records.");
+			}
+			return records;
 		}
 	}
 }
