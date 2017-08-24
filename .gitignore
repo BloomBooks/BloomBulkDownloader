@@ -15,6 +15,7 @@ bin/
 obj/
 packages/
 packages/*.*
+build/MSBuild*.*
 
 _ReSharper*
 

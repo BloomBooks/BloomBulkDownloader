@@ -11,16 +11,16 @@ namespace BloomBulkDownloader
 		public const string SandboxBucketName = "BloomLibraryBooks-Sandbox";
 		public const string ProductionBucketName = "BloomLibraryBooks";
 
-		[Value(0, MetaName = "destination", HelpText = "Final filtered destination path for books", Required = true)]
+		[Value(0, MetaName = "destination", HelpText = "Final filtered destination path for books.", Required = true)]
 		public string FinalDestinationPath { get; set; }
 
-		[Option('b', "bucket", HelpText = "S3 bucket to sync with (values are: 'sandbox', or 'production')", Required = true)]
+		[Option('b', "bucket", HelpText = "S3 bucket to sync with (values are: 'sandbox', or 'production').", Required = true)]
 		public BucketCategory Bucket { get; set; }
 
-		[Option('t', "trial", HelpText = "Just do a trial run of 3 files", Required = false)]
+		[Option('t', "trial", HelpText = "Just do a trial run of files for one user.", Required = false)]
 		public bool TrialRun { get; set; }
 
-		[Option('d', "dryrun", HelpText = "List files synced to console, but don't actually download", Required = false)]
+		[Option('d', "dryrun", HelpText = "List files synced to console, but don't actually download. Skips the second phase of copying filtered files to final destination.", Required = false)]
 		public bool DryRun { get; set; }
 
 		public string S3BucketName
