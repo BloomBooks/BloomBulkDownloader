@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using CommandLine;
 
 namespace BloomBulkDownloader
@@ -11,16 +12,16 @@ namespace BloomBulkDownloader
 		public const string SandboxBucketName = "BloomLibraryBooks-Sandbox";
 		public const string ProductionBucketName = "BloomLibraryBooks";
 
-		[Value(0, MetaName = "destination", HelpText = "Final filtered destination path for books", Required = true)]
+		[Value(0, MetaName = "destination", HelpText = "Final filtered destination path for books.", Required = true)]
 		public string FinalDestinationPath { get; set; }
 
-		[Option('b', "bucket", HelpText = "S3 bucket to sync with (values are: 'sandbox', or 'production')", Required = true)]
+		[Option('b', "bucket", HelpText = "S3 bucket to sync with (values are: 'sandbox', or 'production').", Required = true)]
 		public BucketCategory Bucket { get; set; }
 
-		[Option('t', "trial", HelpText = "Just do a trial run of 3 files", Required = false)]
+		[Option('t', "trial", HelpText = "Just do a trial run of files for one user.", Required = false)]
 		public bool TrialRun { get; set; }
 
-		[Option('d', "dryrun", HelpText = "List files synced to console, but don't actually download", Required = false)]
+		[Option('d', "dryrun", HelpText = "List files synced to console, but don't actually download. Skips the second phase of copying filtered files to final destination.", Required = false)]
 		public bool DryRun { get; set; }
 
 		public string S3BucketName
@@ -64,9 +65,24 @@ namespace BloomBulkDownloader
 					case BucketCategory.undefined:
 						break;
 					case BucketCategory.production:
-						return finalFolder;
+						if (TrialRun)
+						{
+							return Path.Combine(finalFolder, TrialEmail);
+						}
+						else
+						{
+							return finalFolder;
+						}
 					case BucketCategory.sandbox:
-						return finalFolder + "-sandbox";
+						var folder = finalFolder + "-sandbox";
+						if (TrialRun)
+						{
+							return Path.Combine(folder, TrialEmail);
+						}
+						else
+						{
+							return folder;
+						}
 				}
 				throw new ApplicationException("Trying to read SyncFolder before Bucket category is defined...");
 			}
@@ -142,14 +158,12 @@ namespace BloomBulkDownloader
 
 		/// <summary>
 		/// Get the appropriate Email address for a trial run (Production or Sandbox).
-		/// I (gjm) didn't have any Sandbox books "inCirculation".
 		/// </summary>
 		public string TrialEmail
 		{
 			get
 			{
-				const string trialEmailProduction = "gordon_martin@sil.org";
-				const string trialEmailSandbox = "len_wallstrom@sil.org";
+				const string trialEmail = "gordon_martin@sil.org";
 
 				if (!TrialRun)
 				{
@@ -161,9 +175,8 @@ namespace BloomBulkDownloader
 					case BucketCategory.undefined:
 						break;
 					case BucketCategory.production:
-						return trialEmailProduction;
 					case BucketCategory.sandbox:
-						return trialEmailSandbox;
+						return trialEmail;
 				}
 				throw new ApplicationException("Trying to read TrialEmail before Bucket category is defined...");
 			}

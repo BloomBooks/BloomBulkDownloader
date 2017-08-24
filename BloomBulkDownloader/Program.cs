@@ -20,14 +20,20 @@ namespace BloomBulkDownloader
 							" to: "+parsed.Value.FinalDestinationPath);
 						var result = BulkDownloadCommand.Handle(parsed.Value, consoleProgress);
 						Console.WriteLine(result == 0 ? "Success!" : "Failed!");
-						Console.ReadKey(true);
+						WaitForInput();
 						return result;
 					}
 				}
 			}
 			Console.WriteLine("BloomBulkDownloader requires command line arguments.");
-			Console.ReadKey(true);
+			WaitForInput();
 			return 1;
+		}
+
+		private static void WaitForInput()
+		{
+			Console.Write("\nPlease press a key to continue...");
+			Console.ReadKey(true);
 		}
 	}
 }
