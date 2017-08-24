@@ -142,14 +142,12 @@ namespace BloomBulkDownloader
 
 		/// <summary>
 		/// Get the appropriate Email address for a trial run (Production or Sandbox).
-		/// I (gjm) didn't have any Sandbox books "inCirculation".
 		/// </summary>
 		public string TrialEmail
 		{
 			get
 			{
-				const string trialEmailProduction = "gordon_martin@sil.org";
-				const string trialEmailSandbox = "len_wallstrom@sil.org";
+				const string trialEmail = "gordon_martin@sil.org";
 
 				if (!TrialRun)
 				{
@@ -161,9 +159,8 @@ namespace BloomBulkDownloader
 					case BucketCategory.undefined:
 						break;
 					case BucketCategory.production:
-						return trialEmailProduction;
 					case BucketCategory.sandbox:
-						return trialEmailSandbox;
+						return trialEmail;
 				}
 				throw new ApplicationException("Trying to read TrialEmail before Bucket category is defined...");
 			}
