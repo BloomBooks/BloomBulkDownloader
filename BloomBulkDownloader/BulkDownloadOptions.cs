@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using CommandLine;
 
 namespace BloomBulkDownloader
@@ -64,9 +65,24 @@ namespace BloomBulkDownloader
 					case BucketCategory.undefined:
 						break;
 					case BucketCategory.production:
-						return finalFolder;
+						if (TrialRun)
+						{
+							return Path.Combine(finalFolder, TrialEmail);
+						}
+						else
+						{
+							return finalFolder;
+						}
 					case BucketCategory.sandbox:
-						return finalFolder + "-sandbox";
+						var folder = finalFolder + "-sandbox";
+						if (TrialRun)
+						{
+							return Path.Combine(folder, TrialEmail);
+						}
+						else
+						{
+							return folder;
+						}
 				}
 				throw new ApplicationException("Trying to read SyncFolder before Bucket category is defined...");
 			}

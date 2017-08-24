@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
 using RestSharp;
 using SIL.IO;
@@ -92,13 +93,13 @@ namespace BloomBulkDownloader
 		private static int FilteredCopy(BulkDownloadOptions options, IProgressDialog progress)
 		{
 			var records = GetParseDbInCirculationJson(options);
-			var filteredInstanceIds = new HashSet<string>();
+			var filteredInstanceIds = new Dictionary<string, string>();
 
 			foreach (var parseRecord in records)
 			{
 				if (options.TrialRun && parseRecord.Uploader.Email != options.TrialEmail)
 					continue;
-				filteredInstanceIds.Add(parseRecord.InstanceId);
+				filteredInstanceIds.Add(parseRecord.InstanceId, parseRecord.Uploader.DisambName);
 			}
 
 			CopyMatchingBooksToFinalDestination(options, filteredInstanceIds);
@@ -107,34 +108,37 @@ namespace BloomBulkDownloader
 			return 0;
 		}
 
-		private static void CopyMatchingBooksToFinalDestination(BulkDownloadOptions options, ICollection<string> filteredInstanceIds)
+		private static void CopyMatchingBooksToFinalDestination(BulkDownloadOptions options, IDictionary<string, string> filteredInstanceIds)
 		{
 			// Copy to 'destination' folder all folders inside of folders whose names match one of the 'filteredInstanceIds'.
 			var destination = options.FinalDestinationPath;
 			Console.WriteLine("\nStarting filtered copy to " + destination);
 			var sourceDirectories = Directory.GetDirectories(options.SyncFolder);
+			// TODO: Need to make 2 passes
+			// 1 - determine which folders (books) will get copied and whether there are duplicates
+			//     part of duplicate check will record name of destination book
+			// 2 - copy the ones that make the cut
 			var fileCount = 0;
 			var bookCount = 0;
 			foreach (var directory in sourceDirectories)
 			{
-				var key = Path.GetFileName(directory);
-				if (!filteredInstanceIds.Contains(key))
+				var sourceDirGuidString = Path.GetFileName(directory);
+				if (!filteredInstanceIds.ContainsKey(sourceDirGuidString))
 					continue;
-				var booksToCopy = Directory.EnumerateDirectories(directory);
-				foreach (var bookPath in booksToCopy)
+
+				// This directory contains a book we need to copy.
+				var bookToCopyPath = Directory.EnumerateDirectories(directory).First();
+				var sourceFolderName = Path.GetFileName(bookToCopyPath);
+				var destinationFolderPath = Path.Combine(destination, sourceFolderName);
+				Directory.CreateDirectory(destinationFolderPath);
+				foreach (var fileToCopy in Directory.EnumerateFiles(bookToCopyPath))
 				{
-					var folderName = Path.GetFileName(bookPath);
-					var newDestFolder = Path.Combine(destination, folderName);
-					Directory.CreateDirectory(newDestFolder);
-					foreach (var fileToCopy in Directory.EnumerateFiles(bookPath))
-					{
-						var fileName = Path.GetFileName(fileToCopy);
-						RobustFile.Copy(fileToCopy, Path.Combine(newDestFolder, fileName));
-						Console.WriteLine("  " + fileName + " copied to " + newDestFolder);
-						fileCount++;
-					}
-					bookCount++;
+					var fileName = Path.GetFileName(fileToCopy);
+					RobustFile.Copy(fileToCopy, Path.Combine(destinationFolderPath, fileName));
+					Console.WriteLine("  " + fileName + " copied to " + destinationFolderPath);
+					fileCount++;
 				}
+				bookCount++;
 			}
 			Console.WriteLine("\nBooks copied: " + bookCount + "  Files copied: " + fileCount);
 		}
