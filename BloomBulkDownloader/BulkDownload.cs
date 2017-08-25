@@ -15,13 +15,13 @@ namespace BloomBulkDownloader
 	/// </summary>
 	class BulkDownloadCommand
 	{
-		public static int Handle(BulkDownloadOptions options, IProgressDialog progress)
+		public static int Handle(BulkDownloadOptions options)
 		{
 			// This task will be all the program does. We need to do enough setup so that
 			// the download code can work.
 			try
 			{
-				Console.WriteLine("\nSyncing local bucket repo");
+				Console.WriteLine("\nPreparing to sync local bucket repo");
 				var cmdline = GetSyncCommandFromOptions(options);
 				if (!Directory.Exists(options.SyncFolder))
 				{
@@ -33,26 +33,18 @@ namespace BloomBulkDownloader
 					Arguments = cmdline,
 					FileName = "aws",
 					UseShellExecute = false,
-					RedirectStandardError = true,
-					//RedirectStandardOutput = true
+					RedirectStandardError = true
 				});
 				Console.WriteLine("\nSyncing folders...\n");
 				// Read the error stream first and then wait.
 				var error = process.StandardError.ReadToEnd();
-				//var output = process.StandardOutput.ReadToEnd();
+				// I (gjm) tried out redirecting standard output as well, but it left the user with
+				// no feedback that the program was actually doing something.
 				process.WaitForExit();
 				if (process.ExitCode != 0)
 				{
 					throw new ApplicationException("\nSync process failed.\n" + error);
 				}
-				//if (string.IsNullOrWhiteSpace(output))
-				//{
-				//	Console.WriteLine(options.SyncFolder + " was already up-to-date.\n");
-				//}
-				//else
-				//{
-				//	Console.WriteLine(output);
-				//}
 				if (options.DryRun)
 				{
 					Console.WriteLine("\nDry run completed... Can't continue to phase 2 with dry run.");
@@ -62,9 +54,12 @@ namespace BloomBulkDownloader
 				{
 					RobustIO.DeleteDirectory(options.FinalDestinationPath, true);
 				}
-				Console.WriteLine("Creating clean empty directory at: " + options.FinalDestinationPath);
+				Console.WriteLine("\nCreating clean empty directory at: " + options.FinalDestinationPath);
 				Directory.CreateDirectory(options.FinalDestinationPath);
-				return FilteredCopy(options, progress);
+
+				var filteredListOfBooks = GetFilteredListOfBooksToCopy(options);
+
+				return CopyMatchingBooksToFinalDestination(options, filteredListOfBooks);
 			}
 			catch (Exception ex)
 			{
@@ -90,57 +85,107 @@ namespace BloomBulkDownloader
 			return cmdLineArgs;
 		}
 
-		private static int FilteredCopy(BulkDownloadOptions options, IProgressDialog progress)
+		private static Dictionary<string, string> GetFilteredListOfBooksToCopy(BulkDownloadOptions options)
 		{
+			// Get mongodb filtered by inCirculation flag
 			var records = GetParseDbInCirculationJson(options);
-			var filteredInstanceIds = new Dictionary<string, string>();
+			var filteredBooks = new Dictionary<string, List<DownloaderParseRecord>>();
 
+			// Collect up all the records from the mongodb of books to be copied.
+			// Further filter if we are doing a trial run.
 			foreach (var parseRecord in records)
 			{
 				if (options.TrialRun && parseRecord.Uploader.Email != options.TrialEmail)
 					continue;
-				filteredInstanceIds.Add(parseRecord.InstanceId, parseRecord.Uploader.DisambName);
+				if (filteredBooks.TryGetValue(parseRecord.Title, out List<DownloaderParseRecord> listMatchingThisTitle))
+				{
+					listMatchingThisTitle.Add(parseRecord);
+				}
+				else
+				{
+					filteredBooks.Add(parseRecord.Title, new List<DownloaderParseRecord> {parseRecord});
+				}
 			}
 
-			CopyMatchingBooksToFinalDestination(options, filteredInstanceIds);
+			// Now disambiguate any book Titles that have been uploaded by more than one email address.
+			// 'filteredInstanceIds' is keyed on the instance id to copy over
+			// The other string is the (disambiguated, if necessary) book Title.
+			// Disambiguation is by appending "_uploaderEmailAddress" to the Title.
+			var filteredInstanceIds = new Dictionary<string, string>();
+			foreach (var kvpTitle in filteredBooks)
+			{
+				var recordList = kvpTitle.Value;
+				if (recordList.Count == 1)
+				{
+					filteredInstanceIds.Add(recordList[0].InstanceId, recordList[0].Title);
+				}
+				else
+				{
+					foreach (var record in recordList)
+					{
+						filteredInstanceIds.Add(record.InstanceId, record.Title + "_" + record.Uploader.Email);
+					}
+				}
+			}
 
-			Console.WriteLine("\nFiltered copy complete\n");
-			return 0;
+			Console.WriteLine("\nFiltering complete. " + filteredInstanceIds.Count + " books to copy.\n");
+			return filteredInstanceIds;
 		}
 
-		private static void CopyMatchingBooksToFinalDestination(BulkDownloadOptions options, IDictionary<string, string> filteredInstanceIds)
+		private static int CopyMatchingBooksToFinalDestination(BulkDownloadOptions options, IDictionary<string, string> filteredInstanceIds)
 		{
 			// Copy to 'destination' folder all folders inside of folders whose names match one of the 'filteredInstanceIds'.
 			var destination = options.FinalDestinationPath;
 			Console.WriteLine("\nStarting filtered copy to " + destination);
 			var sourceDirectories = Directory.GetDirectories(options.SyncFolder);
-			// TODO: Need to make 2 passes
-			// 1 - determine which folders (books) will get copied and whether there are duplicates
-			//     part of duplicate check will record name of destination book
-			// 2 - copy the ones that make the cut
 			var fileCount = 0;
 			var bookCount = 0;
 			foreach (var directory in sourceDirectories)
 			{
-				var sourceDirGuidString = Path.GetFileName(directory);
-				if (!filteredInstanceIds.ContainsKey(sourceDirGuidString))
-					continue;
-
-				// This directory contains a book we need to copy.
-				var bookToCopyPath = Directory.EnumerateDirectories(directory).First();
-				var sourceFolderName = Path.GetFileName(bookToCopyPath);
-				var destinationFolderPath = Path.Combine(destination, sourceFolderName);
-				Directory.CreateDirectory(destinationFolderPath);
-				foreach (var fileToCopy in Directory.EnumerateFiles(bookToCopyPath))
+				var emailAcctString = Path.GetFileName(directory);
+				if (!emailAcctString.Contains("@"))
 				{
-					var fileName = Path.GetFileName(fileToCopy);
-					RobustFile.Copy(fileToCopy, Path.Combine(destinationFolderPath, fileName));
-					Console.WriteLine("  " + fileName + " copied to " + destinationFolderPath);
-					fileCount++;
+					// This is a book without a separate uploader directory; use this guid string as the outer book folder
+					if (!filteredInstanceIds.ContainsKey(emailAcctString))
+						continue;
+					fileCount += CopyOneBookFolder(directory, destination);
+					bookCount++;
+					Console.Write("."); // breadcrumb for each book copied
 				}
-				bookCount++;
+				else
+				{
+					foreach (var subDirectory in Directory.EnumerateDirectories(directory))
+					{
+						var sourceDirGuidString = Path.GetFileName(subDirectory);
+						if (!filteredInstanceIds.ContainsKey(sourceDirGuidString))
+							continue;
+
+						fileCount += CopyOneBookFolder(subDirectory, destination);
+						bookCount++;
+						Console.Write("."); // breadcrumb for each book copied
+					}
+				}
 			}
 			Console.WriteLine("\nBooks copied: " + bookCount + "  Files copied: " + fileCount);
+			return 0;
+		}
+
+		private static int CopyOneBookFolder(string instanceIdFolder, string destination)
+		{
+			// This 'instanceIdFolder' contains a book we need to copy.
+			var bookToCopyPath = Directory.EnumerateDirectories(instanceIdFolder).First();
+			var sourceFolderName = Path.GetFileName(bookToCopyPath);
+			var destinationFolderPath = Path.Combine(destination, sourceFolderName);
+			Directory.CreateDirectory(destinationFolderPath);
+			var boolFileCount = 0;
+			foreach (var fileToCopy in Directory.EnumerateFiles(bookToCopyPath))
+			{
+				var fileName = Path.GetFileName(fileToCopy);
+				RobustFile.Copy(fileToCopy, Path.Combine(destinationFolderPath, fileName));
+				//Console.WriteLine("  " + fileName + " copied to " + destinationFolderPath);
+				boolFileCount++;
+			}
+			return boolFileCount;
 		}
 
 		private static IEnumerable<DownloaderParseRecord> GetParseDbInCirculationJson(BulkDownloadOptions options)

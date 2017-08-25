@@ -72,11 +72,6 @@ namespace BloomBulkDownloader
 
 		[JsonProperty("administrator")]
 		public bool IsAdministrator { get; set; }
-
-		/// <summary>
-		/// Name to append to Book folder if duplicate Book names exist
-		/// </summary>
-		public string DisambName => Email.Split('@')[0];
 	}
 
 	class ParseLanguage
