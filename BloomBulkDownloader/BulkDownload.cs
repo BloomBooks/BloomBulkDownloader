@@ -13,7 +13,7 @@ namespace BloomBulkDownloader
 	/// This command syncs a local folder with an S3 bucket and then copies certain books to the specified destination.
 	/// See DownloadBookOptions for the expected options.
 	/// </summary>
-	class BulkDownloadCommand
+	public class BulkDownloadCommand
 	{
 		public static int Handle(BulkDownloadOptions options)
 		{
@@ -22,7 +22,7 @@ namespace BloomBulkDownloader
 			try
 			{
 				Console.WriteLine("\nPreparing to sync local bucket repo");
-				var cmdline = GetSyncCommandFromOptions(options);
+				var cmdline = GetSyncCommandLineArgsFromOptions(options);
 				if (!Directory.Exists(options.SyncFolder))
 				{
 					Directory.CreateDirectory(options.SyncFolder);
@@ -69,7 +69,12 @@ namespace BloomBulkDownloader
 			}
 		}
 
-		private static string GetSyncCommandFromOptions(BulkDownloadOptions opts)
+		/// <summary>
+		/// public for testing
+		/// </summary>
+		/// <param name="opts"></param>
+		/// <returns></returns>
+		public static string GetSyncCommandLineArgsFromOptions(BulkDownloadOptions opts)
 		{
 			var cmdLineArgs = "s3 sync s3://";
 			cmdLineArgs += opts.S3BucketName;

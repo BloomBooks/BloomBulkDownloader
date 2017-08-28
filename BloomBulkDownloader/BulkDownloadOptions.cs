@@ -9,8 +9,8 @@ namespace BloomBulkDownloader
 	// (using the beta of commandline 2.0)
 	public class BulkDownloadOptions
 	{
-		public const string SandboxBucketName = "BloomLibraryBooks-Sandbox";
-		public const string ProductionBucketName = "BloomLibraryBooks";
+		private const string SandboxBucketName = "BloomLibraryBooks-Sandbox";
+		private const string ProductionBucketName = "BloomLibraryBooks";
 
 		[Value(0, MetaName = "destination", HelpText = "Final filtered destination path for books.", Required = true)]
 		public string FinalDestinationPath { get; set; }
