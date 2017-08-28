@@ -15,6 +15,9 @@ Copyright c  2017
                           download. Skips the second phase of copying filtered
                           files to final destination.
 
+  -s, --skipS3            Skip the S3 download (Phase 1). Only do the second
+                          phase of copying filtered files to final destination.
+
   --help                  Display this help screen.
 
   --version               Display version information.

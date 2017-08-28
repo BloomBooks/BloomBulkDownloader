@@ -24,6 +24,9 @@ namespace BloomBulkDownloader
 		[Option('d', "dryrun", HelpText = "List files synced to console, but don't actually download. Skips the second phase of copying filtered files to final destination.", Required = false)]
 		public bool DryRun { get; set; }
 
+		[Option('s', "skipS3", HelpText = "Skip the S3 download (Phase 1). Only do the second phase of copying filtered files to final destination.", Required = false)]
+		public bool SkipDownload { get; set; }
+
 		public string S3BucketName
 		{
 			get

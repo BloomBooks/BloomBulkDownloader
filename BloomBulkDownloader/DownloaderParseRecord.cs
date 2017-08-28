@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
 
 namespace BloomBulkDownloader
@@ -13,9 +15,10 @@ namespace BloomBulkDownloader
 		public int Count { get; set; }
 	}
 
-	class DownloaderParseRecord
+	public class DownloaderParseRecord
 	{
 		private List<Tuple<string, string>> _tags;
+		private string _title;
 
 		[JsonProperty("objectId")]
 		public string ObjectId { get; set; }
@@ -30,7 +33,11 @@ namespace BloomBulkDownloader
 		internal string AllTitlesInternal { get; set; }
 
 		[JsonProperty("title")]
-		public string Title { get; set; }
+		public string Title
+		{
+			get { return _title; }
+			set { _title = SanitizeTitle(value.Trim()); }
+		}
 
 		[JsonProperty("tags")]
 		internal IEnumerable<string> TagsInternal { get; set; }
@@ -57,9 +64,18 @@ namespace BloomBulkDownloader
 				return _tags;
 			}
 		}
+
+		private static string SanitizeTitle(string title)
+		{
+			const char space = ' ';
+			title = Path.GetInvalidFileNameChars().Aggregate(
+				title, (current, character) => current.Replace(character, space));
+			return title.Replace('&', space);
+		}
+
 	}
 
-	class ParseUploader
+	public class ParseUploader
 	{
 		[JsonProperty("id")]
 		public string Id { get; set; }
@@ -74,7 +90,7 @@ namespace BloomBulkDownloader
 		public bool IsAdministrator { get; set; }
 	}
 
-	class ParseLanguage
+	public class ParseLanguage
 	{
 		[JsonProperty("isoCode")]
 		public string IsoCode { get; set; }

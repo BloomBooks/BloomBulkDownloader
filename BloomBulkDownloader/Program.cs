@@ -13,9 +13,7 @@ namespace BloomBulkDownloader
 				var parsed = parserResult as Parsed<BulkDownloadOptions>;
 				if (parsed != null)
 				{
-					Console.WriteLine("Commencing download from: "+ parsed.Value.S3BucketName +
-						" to: "+parsed.Value.FinalDestinationPath);
-					var result = BulkDownloadCommand.Handle(parsed.Value);
+					var result = BulkDownload.Handle(parsed.Value);
 					Console.WriteLine(result == 0 ? "Success!" : "Failed!");
 					WaitForInput();
 					return result;
