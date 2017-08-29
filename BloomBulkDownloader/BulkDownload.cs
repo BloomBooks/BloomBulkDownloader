@@ -214,7 +214,8 @@ namespace BloomBulkDownloader
 			var bookToCopyPath = Directory.EnumerateDirectories(instanceIdFolder).First();
 			if (Directory.Exists(destinationBookFolder))
 			{
-				Debug.Fail("Failed to copy from folder " + Path.GetFileName(instanceIdFolder) + " because it already existed");
+				Console.WriteLine("Failed to copy from folder " + Path.GetFileName(instanceIdFolder) +
+				                  " because destination " + destinationBookFolder + " already existed");
 				return 0; // something is wrong here.
 			}
 			Directory.CreateDirectory(destinationBookFolder);
@@ -223,7 +224,6 @@ namespace BloomBulkDownloader
 			{
 				var fileName = Path.GetFileName(fileToCopy);
 				RobustFile.Copy(fileToCopy, Path.Combine(destinationBookFolder, fileName));
-				//Console.WriteLine("  " + fileName + " copied to " + destinationFolderPath);
 				boolFileCount++;
 			}
 			return boolFileCount;
