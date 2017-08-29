@@ -171,40 +171,29 @@ namespace BloomBulkDownloader
 			// Copy to 'destination' folder all folders inside of folders whose names match one of the 'filteredInstanceIds'.
 			var destination = options.FinalDestinationPath;
 			Console.WriteLine("\nStarting filtered copy to " + destination);
-			var sourceDirectories = Directory.GetDirectories(options.SyncFolder);
+			var notFoundDirs = new List<string>();
 			var fileCount = 0;
 			var bookCount = 0;
-			foreach (var directory in sourceDirectories)
+			foreach (var kvPair in filteredInstanceIds)
 			{
-				var emailAcctString = Path.GetFileName(directory);
-				var destinationBookFolder = string.Empty;
-				if (!emailAcctString.Contains("@"))
+				var key = kvPair.Key; // s/b emailaddress+instanceId in Path format
+				var sourceDirGuidString = Path.Combine(options.SyncFolder, key);
+				if (!Directory.Exists(sourceDirGuidString))
 				{
-					// This is a book without a separate uploader directory; use this guid string as the outer book folder
-					// (Not sure yet if this occurs in the Production S3 bucket, but there are a couple of instances in the Sandbox.
-					// In any case, we'll include it for completeness.)
-					var key = emailAcctString;
-					if (!filteredInstanceIds.ContainsKey(key) || filteredInstanceIds[key].Item2 != string.Empty)
-						continue;
-
-					destinationBookFolder = Path.Combine(destination, filteredInstanceIds[key].Item1);
-					fileCount = CopyOneBook(fileCount, directory, destinationBookFolder, ref bookCount);
+					// For some unknown reason, the parsedb record exists, but the book is missing on Amazon S3?
+					// We will report these after copying the books we find.
+					notFoundDirs.Add(sourceDirGuidString);
+					continue;
 				}
-				else
-				{
-					foreach (var subDirectory in Directory.EnumerateDirectories(directory))
-					{
-						var sourceDirGuidString = Path.GetFileName(subDirectory);
-						var key = Path.Combine(emailAcctString, sourceDirGuidString);
-						if (!filteredInstanceIds.ContainsKey(key) || filteredInstanceIds[key].Item2 != emailAcctString)
-							continue;
-
-						destinationBookFolder = Path.Combine(destination, filteredInstanceIds[key].Item1);
-						fileCount = CopyOneBook(fileCount, subDirectory, destinationBookFolder, ref bookCount);
-					}
-				}
+				var destinationBookFolder = Path.Combine(destination, filteredInstanceIds[key].Item1);
+				fileCount = CopyOneBook(fileCount, sourceDirGuidString, destinationBookFolder, ref bookCount);
 			}
 			Console.WriteLine("\nBooks copied: " + bookCount + "  Files copied: " + fileCount);
+			Console.WriteLine("\nThe following books were found inCirculation on the parsedb, but Amazon S3 didn't have them:");
+			foreach (var missingDir in notFoundDirs)
+			{
+				Console.WriteLine("  " + missingDir);
+			}
 			return 0;
 		}
 
@@ -251,7 +240,7 @@ namespace BloomBulkDownloader
 			request.AddParameter("count", "1");
 			request.AddParameter("include", "langPointers");
 			request.AddParameter("include", "uploader");
-			request.AddParameter("where", "{\"inCirculation\":true}");
+			request.AddQueryParameter("where", "{\"inCirculation\":{\"$ne\":false}}");
 			request.RequestFormat = DataFormat.Json;
 
 			var response = client.Execute(request);
