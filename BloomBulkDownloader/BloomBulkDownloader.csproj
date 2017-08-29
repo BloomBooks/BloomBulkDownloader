@@ -65,11 +65,8 @@
     <Compile Include="BulkDownload.cs" />
     <Compile Include="BulkDownloadOptions.cs" />
     <Compile Include="DownloaderParseRecord.cs" />
-    <Compile Include="IProgressDialog.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ProxyManager.cs" />
-    <Compile Include="TemporaryFolder.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

@@ -13,16 +13,10 @@ namespace BloomBulkDownloader
 				var parsed = parserResult as Parsed<BulkDownloadOptions>;
 				if (parsed != null)
 				{
-					using (var consoleProgress = new ConsoleProgress())
-					{
-						consoleProgress.ProgressRangeMaximum = 50;
-						Console.WriteLine("Commencing download from: "+ parsed.Value.S3BucketName +
-							" to: "+parsed.Value.FinalDestinationPath);
-						var result = BulkDownloadCommand.Handle(parsed.Value, consoleProgress);
-						Console.WriteLine(result == 0 ? "Success!" : "Failed!");
-						WaitForInput();
-						return result;
-					}
+					var result = BulkDownload.Handle(parsed.Value);
+					Console.WriteLine(result == 0 ? "Success!" : "Failed!");
+					WaitForInput();
+					return result;
 				}
 			}
 			Console.WriteLine("BloomBulkDownloader requires command line arguments.");

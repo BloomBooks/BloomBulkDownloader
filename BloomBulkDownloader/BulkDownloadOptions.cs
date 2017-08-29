@@ -9,8 +9,8 @@ namespace BloomBulkDownloader
 	// (using the beta of commandline 2.0)
 	public class BulkDownloadOptions
 	{
-		public const string SandboxBucketName = "BloomLibraryBooks-Sandbox";
-		public const string ProductionBucketName = "BloomLibraryBooks";
+		private const string SandboxBucketName = "BloomLibraryBooks-Sandbox";
+		private const string ProductionBucketName = "BloomLibraryBooks";
 
 		[Value(0, MetaName = "destination", HelpText = "Final filtered destination path for books.", Required = true)]
 		public string FinalDestinationPath { get; set; }
@@ -23,6 +23,9 @@ namespace BloomBulkDownloader
 
 		[Option('d', "dryrun", HelpText = "List files synced to console, but don't actually download. Skips the second phase of copying filtered files to final destination.", Required = false)]
 		public bool DryRun { get; set; }
+
+		[Option('s', "skipS3", HelpText = "Skip the S3 download (Phase 1). Only do the second phase of copying filtered files to final destination.", Required = false)]
+		public bool SkipDownload { get; set; }
 
 		public string S3BucketName
 		{
