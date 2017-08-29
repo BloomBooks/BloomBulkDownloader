@@ -119,22 +119,26 @@ namespace BloomBulkDownloaderTests
 	    }
 
 	    [Test]
-	    public void GetFilteredListOfBooksToCopy_test()
+	    public void GetFilteredListOfBooksToCopy_SameGuidForTwoBooks()
 	    {
 			// Setup
 		    var opts = new BulkDownloadOptions { Bucket = BulkDownloadOptions.BucketCategory.production };
-		    SetupParseRecords();
+		    SetupParseRecordsTwoWithSameInstanceId();
 
 			// Use our pre-determined set of DownloaderParseRecords
 		    BulkDownload.GetParseDbBooks = TestParseDbDelegate;
 
 			// SUT
 		    var listOfBooks = BulkDownload.GetFilteredListOfBooksToCopy(opts);
-			Assert.That(listOfBooks.Keys.Count, Is.EqualTo(2));
-			Assert.That(listOfBooks.First().Value.Item1, Is.EqualTo(_testUploader1.Email));
-		    Assert.That(listOfBooks.First().Value.Item2, Is.EqualTo("Box test"));
-		    Assert.That(listOfBooks.Last().Value.Item1, Is.EqualTo(_testUploader2.Email));
-		    Assert.That(listOfBooks.Last().Value.Item2, Is.EqualTo("Other test"));
+			Assert.That(listOfBooks.Keys.Count, Is.EqualTo(3));
+			Assert.That(listOfBooks.First().Key, Is.EqualTo(_testUploader1.Email + "\\" + _testParseRecords[0].InstanceId));Assert.That(listOfBooks.First().Value.Item1, Is.EqualTo("Box test"));
+			Assert.That(listOfBooks.First().Value.Item2, Is.EqualTo(_testUploader1.Email));
+			Assert.That(listOfBooks.Last().Key, Is.EqualTo(_testUploader2.Email + "\\" + _testParseRecords[2].InstanceId));
+			var expected = new Tuple<string, string>("Other test_somebody@gmail.com", "somebody@gmail.com");
+			Assert.That(listOfBooks[_testUploader1.Email + "\\" + _testParseRecords[1].InstanceId],
+				Is.EqualTo(expected));
+			Assert.That(listOfBooks.Last().Value.Item1, Is.EqualTo("Other test_somebodyelse@gmail.com"));
+			Assert.That(listOfBooks.Last().Value.Item2, Is.EqualTo(_testUploader2.Email));
 	    }
 
 		private IEnumerable<DownloaderParseRecord> TestParseDbDelegate(BulkDownloadOptions options)
@@ -142,13 +146,13 @@ namespace BloomBulkDownloaderTests
 		    return _testParseRecords;
 	    }
 
-		private void SetupParseRecords()
+		private void SetupParseRecordsTwoWithSameInstanceId()
 		{
 			var parseRec1 = new DownloaderParseRecord
 			{
 				InCirculation = true,
 				InstanceId = "09f5edbe-6259-471e-88ea-e409113ddfb3",
-				Title = "\nBox\ntest\n",
+				Title = "\nBox\ntest\n", // Tests Title sanitization
 				Uploader = _testUploader1,
 				Languages = new List<ParseLanguage> { _testLanguage }
 			};

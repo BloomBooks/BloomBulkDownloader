@@ -136,22 +136,29 @@ namespace BloomBulkDownloader
 			}
 
 			// Now disambiguate any book Titles that have been uploaded by more than one email address.
-			// 'filteredInstanceIds' is keyed on the instance id to copy over
+			// 'filteredInstanceIds' is keyed on the emailaddress + instance id to copy over
 			// The other string is the (disambiguated, if necessary) book Title, and uploader.
 			// Disambiguation is by appending "_uploaderEmailAddress" to the Title.
 			var filteredInstanceIds = new Dictionary<string, Tuple<string, string>>();
 			foreach (var kvpTitle in filteredBooks)
 			{
 				var recordList = kvpTitle.Value;
+				string key = string.Empty;
+				Tuple<string, string> titleEmailTuple;
 				if (recordList.Count == 1)
 				{
-					filteredInstanceIds.Add(recordList[0].InstanceId, new Tuple<string, string>(recordList[0].Title, recordList[0].Uploader.Email));
+					key = Path.Combine(recordList[0].Uploader.Email, recordList[0].InstanceId);
+					titleEmailTuple = new Tuple<string, string>(recordList[0].Title, recordList[0].Uploader.Email);
+					filteredInstanceIds.Add(key, titleEmailTuple);
 				}
 				else
 				{
 					foreach (var record in recordList)
 					{
-						filteredInstanceIds.Add(record.InstanceId, new Tuple<string, string>(record.Title + "_" + record.Uploader.Email, record.Uploader.Email));
+						key = Path.Combine(record.Uploader.Email, record.InstanceId);
+						// Disambiguate title of new folder by appending underscore plus email address.
+						titleEmailTuple = new Tuple<string, string>(record.Title + "_" + record.Uploader.Email, record.Uploader.Email);
+						filteredInstanceIds.Add(key, titleEmailTuple);
 					}
 				}
 			}
@@ -176,10 +183,11 @@ namespace BloomBulkDownloader
 					// This is a book without a separate uploader directory; use this guid string as the outer book folder
 					// (Not sure yet if this occurs in the Production S3 bucket, but there are a couple of instances in the Sandbox.
 					// In any case, we'll include it for completeness.)
-					if (!filteredInstanceIds.ContainsKey(emailAcctString) || filteredInstanceIds[emailAcctString].Item2 != string.Empty)
+					var key = emailAcctString;
+					if (!filteredInstanceIds.ContainsKey(key) || filteredInstanceIds[key].Item2 != string.Empty)
 						continue;
 
-					destinationBookFolder = Path.Combine(destination, filteredInstanceIds[emailAcctString].Item1);
+					destinationBookFolder = Path.Combine(destination, filteredInstanceIds[key].Item1);
 					fileCount = CopyOneBook(fileCount, directory, destinationBookFolder, ref bookCount);
 				}
 				else
@@ -187,10 +195,11 @@ namespace BloomBulkDownloader
 					foreach (var subDirectory in Directory.EnumerateDirectories(directory))
 					{
 						var sourceDirGuidString = Path.GetFileName(subDirectory);
-						if (!filteredInstanceIds.ContainsKey(sourceDirGuidString) || filteredInstanceIds[sourceDirGuidString].Item2 != emailAcctString)
+						var key = Path.Combine(emailAcctString, sourceDirGuidString);
+						if (!filteredInstanceIds.ContainsKey(key) || filteredInstanceIds[key].Item2 != emailAcctString)
 							continue;
 
-						destinationBookFolder = Path.Combine(destination, filteredInstanceIds[sourceDirGuidString].Item1);
+						destinationBookFolder = Path.Combine(destination, filteredInstanceIds[key].Item1);
 						fileCount = CopyOneBook(fileCount, subDirectory, destinationBookFolder, ref bookCount);
 					}
 				}
