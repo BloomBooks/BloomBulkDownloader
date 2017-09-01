@@ -1,11 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26430.16
+VisualStudioVersion = 15.0.26430.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BloomBulkDownloader", "BloomBulkDownloader\BloomBulkDownloader.csproj", "{EFE7BC26-4449-4F2C-9432-3E344C594057}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BloomBulkDownloaderTests", "BloomBulkDownloaderTests\BloomBulkDownloaderTests.csproj", "{08E8CBDD-B12A-4E16-8DFF-2866E34CF9C1}"
+	ProjectSection(ProjectDependencies) = postProject
+		{EFE7BC26-4449-4F2C-9432-3E344C594057} = {EFE7BC26-4449-4F2C-9432-3E344C594057}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
