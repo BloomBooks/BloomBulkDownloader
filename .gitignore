@@ -23,3 +23,7 @@ _ReSharper*
 .nuget/nuget.exe
 ReadMe_*.html
 node_modules
+
+build/*.dll
+
+lib/dotnet/

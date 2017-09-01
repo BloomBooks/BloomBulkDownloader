@@ -15,6 +15,10 @@ namespace BloomBulkDownloader
 		[Value(0, MetaName = "destination", HelpText = "Final filtered destination path for books.", Required = true)]
 		public string FinalDestinationPath { get; set; }
 
+		[Option('f', "syncfolder", HelpText = "Local destination path for the sync phase", Required = true)]
+		public string  BaseSyncFolder { get; set; }
+
+
 		[Option('b', "bucket", HelpText = "S3 bucket to sync with (values are: 'sandbox', or 'production').", Required = true)]
 		public BucketCategory Bucket { get; set; }
 
@@ -62,7 +66,6 @@ namespace BloomBulkDownloader
 		{
 			get
 			{
-				const string finalFolder = "C:\\BloomBulkDownloader-SyncFolder";
 				switch (Bucket)
 				{
 					case BucketCategory.undefined:
@@ -70,14 +73,14 @@ namespace BloomBulkDownloader
 					case BucketCategory.production:
 						if (TrialRun)
 						{
-							return Path.Combine(finalFolder, TrialEmail);
+							return Path.Combine(BaseSyncFolder, TrialEmail);
 						}
 						else
 						{
-							return finalFolder;
+							return BaseSyncFolder;
 						}
 					case BucketCategory.sandbox:
-						var folder = finalFolder + "-sandbox";
+						var folder = BaseSyncFolder + "-sandbox";
 						if (TrialRun)
 						{
 							return Path.Combine(folder, TrialEmail);
