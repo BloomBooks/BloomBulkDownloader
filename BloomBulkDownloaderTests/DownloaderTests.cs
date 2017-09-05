@@ -7,7 +7,7 @@ using BloomBulkDownloader;
 namespace BloomBulkDownloaderTests
 {
 	[TestFixture]
-    public class DownloaderTests
+	public class DownloaderTests
 	{
 		private List<DownloaderParseRecord> _testParseRecords;
 		private readonly ParseUploader _testUploader1;
@@ -26,11 +26,11 @@ namespace BloomBulkDownloaderTests
 			};
 		}
 
-	    [SetUp]
-	    public void TestSetup()
-	    {
-		    _testParseRecords = new List<DownloaderParseRecord>();
-	    }
+		[SetUp]
+		public void TestSetup()
+		{
+			_testParseRecords = new List<DownloaderParseRecord>();
+		}
 
 		[TearDown]
 		public void TestTeardown()
@@ -38,98 +38,108 @@ namespace BloomBulkDownloaderTests
 			_testParseRecords = null;
 		}
 
-	    [Test]
-	    public void GetSyncCmdLineArgs_Sandbox()
-	    {
-		    var opts = new BulkDownloadOptions {Bucket = BulkDownloadOptions.BucketCategory.sandbox};
+		[Test]
+		public void GetSyncCmdLineArgs_Sandbox()
+		{
+			var opts = new BulkDownloadOptions
+			{
+				Bucket = BulkDownloadOptions.BucketCategory.sandbox,
+				BaseSyncFolder = "testFolder"
+			};
 
-		    // Verify some initial settings
+			// Verify some initial settings
 			Assert.IsFalse(opts.TrialRun);
 			Assert.IsFalse(opts.DryRun);
 			Assert.That(opts.TrialEmail, Is.EqualTo(string.Empty));
 			Assert.That(opts.ParseServer, Is.EqualTo("https://bloom-parse-server-develop.azurewebsites.net"));
 
 			// SUT
-		    var result = BulkDownload.GetSyncCommandLineArgsFromOptions(opts);
+			var result = BulkDownload.GetSyncCommandLineArgsFromOptions(opts);
 
 			// Verify
-			Assert.That(result, Is.EqualTo("s3 sync s3://BloomLibraryBooks-Sandbox C:\\BloomBulkDownloader-SyncFolder-sandbox"));
-	    }
+			Assert.That(result, Is.EqualTo("s3 sync s3://BloomLibraryBooks-Sandbox testFolder-sandbox"));
+		}
 
-	    [Test]
-	    public void GetSyncCmdLineArgs_Production()
-	    {
-		    var opts = new BulkDownloadOptions { Bucket = BulkDownloadOptions.BucketCategory.production };
+		[Test]
+		public void GetSyncCmdLineArgs_Production()
+		{
+			var opts = new BulkDownloadOptions
+			{
+				Bucket = BulkDownloadOptions.BucketCategory.production,
+				BaseSyncFolder = "testFolder"
+			};
 
-		    // Verify some initial settings
-		    Assert.IsFalse(opts.TrialRun);
-		    Assert.IsFalse(opts.DryRun);
-		    Assert.That(opts.TrialEmail, Is.EqualTo(string.Empty));
-		    Assert.That(opts.ParseServer, Is.EqualTo("https://bloom-parse-server-production.azurewebsites.net"));
-
-		    // SUT
-		    var result = BulkDownload.GetSyncCommandLineArgsFromOptions(opts);
-
-		    // Verify
-		    Assert.That(result, Is.EqualTo("s3 sync s3://BloomLibraryBooks C:\\BloomBulkDownloader-SyncFolder"));
-	    }
-
-	    [Test]
-	    public void GetSyncCmdLineArgs_Sandbox_Trial_Dryrun()
-	    {
-		    var opts = new BulkDownloadOptions
-		    {
-			    Bucket = BulkDownloadOptions.BucketCategory.sandbox,
-			    DryRun = true, TrialRun = true
-		    };
-
-		    // Verify some initial settings
-		    Assert.IsTrue(opts.TrialRun);
-		    Assert.IsTrue(opts.DryRun);
-		    Assert.That(opts.TrialEmail, Is.EqualTo("gordon_martin@sil.org"));
-		    Assert.That(opts.ParseServer, Is.EqualTo("https://bloom-parse-server-develop.azurewebsites.net"));
-
-		    // SUT
-		    var result = BulkDownload.GetSyncCommandLineArgsFromOptions(opts);
-
-		    // Verify
-		    Assert.That(result, Is.EqualTo("s3 sync s3://BloomLibraryBooks-Sandbox/gordon_martin@sil.org C:\\BloomBulkDownloader-SyncFolder-sandbox\\gordon_martin@sil.org --dryrun"));
-	    }
-
-	    [Test]
-	    public void GetSyncCmdLineArgs_Production_Trial_Dryrun()
-	    {
-		    var opts = new BulkDownloadOptions
-		    {
-			    Bucket = BulkDownloadOptions.BucketCategory.production,
-			    DryRun = true, TrialRun = true
-		    };
-
-		    // Verify some initial settings
-		    Assert.IsTrue(opts.TrialRun);
-		    Assert.IsTrue(opts.DryRun);
-		    Assert.That(opts.TrialEmail, Is.EqualTo("gordon_martin@sil.org"));
-		    Assert.That(opts.ParseServer, Is.EqualTo("https://bloom-parse-server-production.azurewebsites.net"));
-
-		    // SUT
-		    var result = BulkDownload.GetSyncCommandLineArgsFromOptions(opts);
-
-		    // Verify
-		    Assert.That(result, Is.EqualTo("s3 sync s3://BloomLibraryBooks/gordon_martin@sil.org C:\\BloomBulkDownloader-SyncFolder\\gordon_martin@sil.org --dryrun"));
-	    }
-
-	    [Test]
-	    public void GetFilteredListOfBooksToCopy_SameGuidForTwoBooks()
-	    {
-			// Setup
-		    var opts = new BulkDownloadOptions { Bucket = BulkDownloadOptions.BucketCategory.production };
-		    SetupParseRecordsTwoWithSameInstanceId();
-
-			// Use our pre-determined set of DownloaderParseRecords
-		    BulkDownload.GetParseDbBooks = TestParseDbDelegate;
+			// Verify some initial settings
+			Assert.IsFalse(opts.TrialRun);
+			Assert.IsFalse(opts.DryRun);
+			Assert.That(opts.TrialEmail, Is.EqualTo(string.Empty));
+			Assert.That(opts.ParseServer, Is.EqualTo("https://bloom-parse-server-production.azurewebsites.net"));
 
 			// SUT
-		    var listOfBooks = BulkDownload.GetFilteredListOfBooksToCopy(opts);
+			var result = BulkDownload.GetSyncCommandLineArgsFromOptions(opts);
+
+			// Verify
+			Assert.That(result, Is.EqualTo("s3 sync s3://BloomLibraryBooks testFolder"));
+		}
+
+		[Test]
+		public void GetSyncCmdLineArgs_Sandbox_Trial_Dryrun()
+		{
+			var opts = new BulkDownloadOptions
+			{
+				Bucket = BulkDownloadOptions.BucketCategory.sandbox,
+				DryRun = true, TrialRun = true,
+				BaseSyncFolder = "testFolder"
+			};
+
+			// Verify some initial settings
+			Assert.IsTrue(opts.TrialRun);
+			Assert.IsTrue(opts.DryRun);
+			Assert.That(opts.TrialEmail, Is.EqualTo("gordon_martin@sil.org"));
+			Assert.That(opts.ParseServer, Is.EqualTo("https://bloom-parse-server-develop.azurewebsites.net"));
+
+			// SUT
+			var result = BulkDownload.GetSyncCommandLineArgsFromOptions(opts);
+
+			// Verify
+			Assert.That(result, Is.EqualTo("s3 sync s3://BloomLibraryBooks-Sandbox/gordon_martin@sil.org testFolder-sandbox\\gordon_martin@sil.org --dryrun"));
+		}
+
+		[Test]
+		public void GetSyncCmdLineArgs_Production_Trial_Dryrun()
+		{
+			var opts = new BulkDownloadOptions
+			{
+				Bucket = BulkDownloadOptions.BucketCategory.production,
+				DryRun = true, TrialRun = true,
+				BaseSyncFolder = "testFolder"
+			};
+
+			// Verify some initial settings
+			Assert.IsTrue(opts.TrialRun);
+			Assert.IsTrue(opts.DryRun);
+			Assert.That(opts.TrialEmail, Is.EqualTo("gordon_martin@sil.org"));
+			Assert.That(opts.ParseServer, Is.EqualTo("https://bloom-parse-server-production.azurewebsites.net"));
+
+			// SUT
+			var result = BulkDownload.GetSyncCommandLineArgsFromOptions(opts);
+
+			// Verify
+			Assert.That(result, Is.EqualTo("s3 sync s3://BloomLibraryBooks/gordon_martin@sil.org testFolder\\gordon_martin@sil.org --dryrun"));
+		}
+
+		[Test]
+		public void GetFilteredListOfBooksToCopy_SameGuidForTwoBooks()
+		{
+			// Setup
+			var opts = new BulkDownloadOptions { Bucket = BulkDownloadOptions.BucketCategory.production };
+			SetupParseRecordsTwoWithSameInstanceId();
+
+			// Use our pre-determined set of DownloaderParseRecords
+			BulkDownload.GetParseDbBooks = TestParseDbDelegate;
+
+			// SUT
+			var listOfBooks = BulkDownload.GetFilteredListOfBooksToCopy(opts);
 			Assert.That(listOfBooks.Keys.Count, Is.EqualTo(3));
 			Assert.That(listOfBooks.First().Key, Is.EqualTo(_testUploader1.Email + "\\" + _testParseRecords[0].InstanceId));Assert.That(listOfBooks.First().Value.Item1, Is.EqualTo("Box test"));
 			Assert.That(listOfBooks.First().Value.Item2, Is.EqualTo(_testUploader1.Email));
@@ -139,12 +149,12 @@ namespace BloomBulkDownloaderTests
 				Is.EqualTo(expected));
 			Assert.That(listOfBooks.Last().Value.Item1, Is.EqualTo("Other test_somebodyelse@gmail.com"));
 			Assert.That(listOfBooks.Last().Value.Item2, Is.EqualTo(_testUploader2.Email));
-	    }
+		}
 
 		private IEnumerable<DownloaderParseRecord> TestParseDbDelegate(BulkDownloadOptions options)
-	    {
-		    return _testParseRecords;
-	    }
+		{
+			return _testParseRecords;
+		}
 
 		private void SetupParseRecordsTwoWithSameInstanceId()
 		{
