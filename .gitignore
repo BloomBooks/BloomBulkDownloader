@@ -27,4 +27,3 @@ node_modules
 build/*.dll
 
 lib/dotnet/
-/DistFiles/connections.dll

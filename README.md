@@ -6,6 +6,8 @@ Running "BloomBulkDownloader --help" gives the following help screen:
 BloomBulkDownloader 1.0.0.0
 Copyright c  2017
 
+  -f, --syncfolder        Required. Local destination path for the sync phase.
+  
   -b, --bucket            Required. S3 bucket to sync with (values are:
                           'sandbox', or 'production').
 
