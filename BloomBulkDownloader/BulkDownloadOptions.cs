@@ -15,9 +15,8 @@ namespace BloomBulkDownloader
 		[Value(0, MetaName = "destination", HelpText = "Final filtered destination path for books.", Required = true)]
 		public string FinalDestinationPath { get; set; }
 
-		[Option('f', "syncfolder", HelpText = "Local destination path for the sync phase", Required = true)]
-		public string  BaseSyncFolder { get; set; }
-
+		[Option('f', "syncfolder", HelpText = "Local destination path for the sync phase.", Required = true)]
+		public string BaseSyncFolder { get; set; }
 
 		[Option('b', "bucket", HelpText = "S3 bucket to sync with (values are: 'sandbox', or 'production').", Required = true)]
 		public BucketCategory Bucket { get; set; }
@@ -66,6 +65,12 @@ namespace BloomBulkDownloader
 		{
 			get
 			{
+				if (string.IsNullOrEmpty(BaseSyncFolder))
+				{
+					// This is only necessary for testing, since in production processing the options
+					// respects the 'require=true' flag.
+					throw new ApplicationException("Please set a BaseSyncFolder for your test.");
+				}
 				switch (Bucket)
 				{
 					case BucketCategory.undefined:
