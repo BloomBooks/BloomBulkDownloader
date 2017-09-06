@@ -1,0 +1,100 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<!-- This makes defaults for various properties unless they are set from the command line or TeamCity parameter settings.
+	Typically command line includes /p:BUILD_NUMBER=3.1.22.0 (all 4 digits required). -->
+	<PropertyGroup>
+		<RootDir Condition="'$(teamcity_version)' == ''">$(MSBuildProjectDirectory)\..</RootDir>
+		<RootDir Condition="'$(teamcity_version)' != ''">$(teamcity_build_checkoutDir)</RootDir>
+		<Solution>BloomBulkDownloader.sln</Solution>
+		<ApplicationName>BloomBulkDownloader</ApplicationName>
+		<Configuration>Release</Configuration>
+		<Platform>Any CPU</Platform>
+		<BUILD_NUMBER Condition="'$(BUILD_NUMBER)'==''">1.2.3.4</BUILD_NUMBER>
+		<useNUnit-x86>true</useNUnit-x86>
+		<MSBuildCommunityTasksPath>$(RootDir)/build</MSBuildCommunityTasksPath>
+	</PropertyGroup>
+
+	<UsingTask TaskName="StampAssemblies" AssemblyFile="$(RootDir)/build/SIL.BuildTasks.dll" />
+	<UsingTask TaskName="Split" AssemblyFile="$(RootDir)/build/SIL.BuildTasks.dll" />
+	<UsingTask TaskName="FileUpdate" AssemblyFile="$(RootDir)/build/SIL.BuildTasks.dll" />
+	<UsingTask TaskName="NUnit3" AssemblyFile="$(RootDir)/build/SIL.BuildTasks.dll" />
+
+  <Target Name="VersionNumbers">
+	<Message Text="BUILD_NUMBER: $(BUILD_NUMBER)" Importance="high"/>
+
+	<Split Input="$(BUILD_NUMBER)" Delimiter="." OutputSubString="2">
+	  <Output TaskParameter="ReturnValue" PropertyName="BuildCounter" />
+	</Split>
+	<Split Input="$(BUILD_NUMBER)" Delimiter="." OutputSubString="3">
+	  <Output TaskParameter="ReturnValue" PropertyName="BuildHash" />
+	</Split>
+
+	<Message Text="BuildCounter: $(BuildCounter)" Importance="high"/>
+	<Message Text="BuildHash: $(BuildHash)" Importance="high"/>
+
+	<!-- Note, after some thought, we've decided this is the best place to keep the version number (not on TeamCity, not in the assemblies). -->
+	<CreateProperty Value="0.1.$(BuildCounter)">
+	  <Output PropertyName="Version" TaskParameter="Value"/>
+	</CreateProperty>
+	<CreateProperty Value="$(Version).$(BuildHash)">
+	  <Output PropertyName="FullVersion" TaskParameter="Value"/>
+	</CreateProperty>
+	<Message Text="Version: $(Version)" Importance="high"/>
+	<Message Text="FullVersion: $(FullVersion)" Importance="high"/>
+  </Target>
+
+  <Target Name="SetAssemblyVersion" DependsOnTargets="VersionNumbers">
+	<ItemGroup>
+	<!-- warning... using wildcards wil break if it has to search deeper than MAX_PATHS, which can easily happen in node_modules
+	after npm shrinkwrapping (locking down dependencies). -->
+	  <AssemblyInfoFiles Include="$(RootDir)/BloomBulkDownloader/*/AssemblyInfo.cs"/>
+	</ItemGroup>
+	<StampAssemblies Version="$(Version)" InputAssemblyPaths="@(AssemblyInfoFiles)" />
+	  <!--the product name also needs to have the channel in it.-->
+	  <FileUpdate File="$(RootDir)\BloomBulkDownloader\Properties\AssemblyInfo.cs"
+			 DatePlaceholder='RELEASE_DATE'
+			Regex='AssemblyProduct\("BloomBulkDownloader[^"]*"\)'
+			 ReplacementText ='AssemblyProduct("BloomBulkDownloader")' />
+  </Target>
+
+  <Target Name="Build" DependsOnTargets="SetAssemblyVersion">
+	<MSBuild Projects="$(RootDir)/$(Solution)"
+			 Targets="Rebuild"
+			 Properties="Configuration=$(Configuration)" />
+  </Target>
+
+	<ItemGroup>
+		<TestAssemblies Include="$(RootDir)/output/$(Configuration)/BloomBulkDownloaderTests.dll"/>
+	</ItemGroup>
+
+	<Target Name="Test" DependsOnTargets="Build">
+		<CallTarget Targets="TestOnly"/>
+	</Target>
+
+	<Target Name="TestOnly" DependsOnTargets="RunNUnit"/>
+
+	<Target Name="RunNUnit">
+		<NUnit3 Condition="'$(teamcity_version)' == ''"
+			Assemblies="@(TestAssemblies)"
+			ToolPath="$(RootDir)/packages/NUnit.ConsoleRunner.3.7.0/tools"
+			ExcludeCategory="$(excludedCategories)"
+			WorkingDirectory="$(RootDir)/output/$(Configuration)"
+			Force32Bit="$(useNUnit-x86)"
+			UseNUnit3Xml="true"
+			Verbose="true"
+			OutputXmlFile="$(RootDir)/output/$(Configuration)/TestResults.xml"
+			TeamCity="false"/>
+		<NUnit3 Condition="'$(teamcity_version)' != ''"
+			Assemblies="@(TestAssemblies)"
+			ToolPath="$(RootDir)/packages/NUnit.ConsoleRunner.3.7.0/tools"
+			ExcludeCategory="SkipOnTeamCity,$(excludedCategories)"
+			WorkingDirectory="$(RootDir)/output/$(Configuration)"
+			Force32Bit="$(useNUnit-x86)"
+			UseNUnit3Xml="true"
+			Verbose="true"
+			TeamCity="true"/>
+	</Target>
+<!-- Don't know if this is necessary or not -->
+	<Target Name="SignExesIfPossible">
+		<Exec Command='sign "$(RootDir)\output\$(Configuration)\BloomBulkDownloader.exe"' ContinueOnError="true"></Exec>
+	</Target>
+</Project>
