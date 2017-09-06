@@ -79,7 +79,6 @@
 			ExcludeCategory="$(excludedCategories)"
 			WorkingDirectory="$(RootDir)/output/$(Configuration)"
 			Force32Bit="$(useNUnit-x86)"
-			UseNUnit3Xml="true"
 			Verbose="true"
 			OutputXmlFile="$(RootDir)/output/$(Configuration)/TestResults.xml"
 			TeamCity="false"/>
@@ -89,7 +88,6 @@
 			ExcludeCategory="SkipOnTeamCity,$(excludedCategories)"
 			WorkingDirectory="$(RootDir)/output/$(Configuration)"
 			Force32Bit="$(useNUnit-x86)"
-			UseNUnit3Xml="true"
 			Verbose="true"
 			TeamCity="true"/>
 	</Target>
