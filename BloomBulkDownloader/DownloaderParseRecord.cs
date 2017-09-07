@@ -48,6 +48,12 @@ namespace BloomBulkDownloader
 		[JsonProperty("uploader")]
 		public ParseUploader Uploader { get; set; }
 
+		[JsonProperty("updatedAt")]
+		public DateTime LastUpdated { get; set; }
+
+		[JsonProperty("baseUrl")]
+		public string BaseUrl { get; set; }
+
 		public IEnumerable<Tuple<string, string>> Tags
 		{
 			get

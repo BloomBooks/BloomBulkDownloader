@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 using RestSharp;
+using RestSharp.Extensions.MonoHttp;
 using SIL.IO;
 
 namespace BloomBulkDownloader
@@ -113,10 +114,11 @@ namespace BloomBulkDownloader
 		/// </summary>
 		/// <param name="options"></param>
 		/// <returns></returns>
-		public static Dictionary<string, Tuple<string, string>> GetFilteredListOfBooksToCopy(BulkDownloadOptions options)
+		public static Dictionary<string, Tuple<string, string, DateTime>> GetFilteredListOfBooksToCopy(BulkDownloadOptions options)
 		{
 			// Get mongodb filtered by inCirculation flag
 			var records = GetParseDbBooks(options);
+			// dictionary keyed on Title, so we can disambiguate different books with the same Title
 			var filteredBooks = new Dictionary<string, List<DownloaderParseRecord>>();
 
 			// Collect up all the records from the mongodb of books to be copied.
@@ -136,48 +138,93 @@ namespace BloomBulkDownloader
 			}
 
 			// Now disambiguate any book Titles that have been uploaded by more than one email address.
-			// 'filteredInstanceIds' is keyed on the emailaddress + instance id to copy over
-			// The other string is the (disambiguated, if necessary) book Title, and uploader.
+			// 'filteredBaseUrlsToCopy' is keyed on part of the BaseUrl of the book to copy over.
+			// (GJM--This gets around an email mismatch problem I was having where the uploader email in the mongodb was
+			// different than the email that S3 had the book filed under.)
+			// The tuple is the (disambiguated, if necessary) book Title, uploader, and lastupdate datestamp.
 			// Disambiguation is by appending "_uploaderEmailAddress" to the Title.
-			var filteredInstanceIds = new Dictionary<string, Tuple<string, string>>();
+			var filteredBaseUrlsToCopy = new Dictionary<string, Tuple<string, string, DateTime>>();
 			foreach (var kvpTitle in filteredBooks)
 			{
 				var recordList = kvpTitle.Value;
-				string key = string.Empty;
-				Tuple<string, string> titleEmailTuple;
+				string key;
+				Tuple<string, string, DateTime> bookInfoTuple;
 				if (recordList.Count == 1)
 				{
-					key = Path.Combine(recordList[0].Uploader.Email, recordList[0].InstanceId);
-					titleEmailTuple = new Tuple<string, string>(recordList[0].Title, recordList[0].Uploader.Email);
-					filteredInstanceIds.Add(key, titleEmailTuple);
+					key = recordList[0].BaseUrl;
+					if (string.IsNullOrWhiteSpace(key))
+					{
+						ReportMissingBookOnS3(recordList[0]);
+						continue;
+					}
+					bookInfoTuple = new Tuple<string, string, DateTime>(
+						recordList[0].Title, recordList[0].Uploader.Email, recordList[0].LastUpdated);
+					if (filteredBaseUrlsToCopy.TryGetValue(key, out Tuple<string, string, DateTime> dummy))
+					{
+						ReportSameBaseUrlFound(recordList[0]);
+						var existingDate = dummy.Item3;
+						if (existingDate >= bookInfoTuple.Item3)
+						{
+							continue;
+						}
+						filteredBaseUrlsToCopy.Remove(key);
+					}
+					filteredBaseUrlsToCopy.Add(key, bookInfoTuple);
 				}
 				else
 				{
 					foreach (var record in recordList)
 					{
-						key = Path.Combine(record.Uploader.Email, record.InstanceId);
+						key = record.BaseUrl;
+						if (string.IsNullOrWhiteSpace(key))
+						{
+							ReportMissingBookOnS3(recordList[0]);
+							continue;
+						}
 						// Disambiguate title of new folder by appending underscore plus email address.
-						titleEmailTuple = new Tuple<string, string>(record.Title + "_" + record.Uploader.Email, record.Uploader.Email);
-						filteredInstanceIds.Add(key, titleEmailTuple);
+						bookInfoTuple = new Tuple<string, string, DateTime>(
+							record.Title + "_" + record.Uploader.Email, record.Uploader.Email, record.LastUpdated);
+						if (filteredBaseUrlsToCopy.TryGetValue(key, out Tuple<string, string, DateTime> dummy))
+						{
+							ReportSameBaseUrlFound(record);
+							var existingDate = dummy.Item3;
+							if (existingDate >= bookInfoTuple.Item3)
+							{
+								continue;
+							}
+							filteredBaseUrlsToCopy.Remove(key);
+						}
+						filteredBaseUrlsToCopy.Add(key, bookInfoTuple);
 					}
 				}
 			}
 
-			return filteredInstanceIds;
+			return filteredBaseUrlsToCopy;
 		}
 
-		private static int CopyMatchingBooksToFinalDestination(BulkDownloadOptions options, IDictionary<string, Tuple<string, string>> filteredInstanceIds)
+		private static void ReportSameBaseUrlFound(DownloaderParseRecord parseRecord)
 		{
-			// Copy to 'destination' folder all folders inside of folders whose names match one of the 'filteredInstanceIds'.
+			Console.WriteLine("Duplicate book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email + " was found by baseUrl on S3.\n  Copying only the most recently one.");
+		}
+
+		private static void ReportMissingBookOnS3(DownloaderParseRecord parseRecord)
+		{
+			Console.WriteLine("Book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email + " has no BaseUrl and can't be copied.");
+		}
+
+		private static int CopyMatchingBooksToFinalDestination(BulkDownloadOptions options, IDictionary<string, Tuple<string, string, DateTime>> filteredBaseUrlsToCopy)
+		{
+			// Copy to 'destination' folder all folders inside of folders whose names match one of the 'filteredBaseUrlsToCopy'.
 			var destination = options.FinalDestinationPath;
 			Console.WriteLine("\nStarting filtered copy to " + destination);
 			var notFoundDirs = new List<string>();
 			var fileCount = 0;
 			var bookCount = 0;
-			foreach (var kvPair in filteredInstanceIds)
+			foreach (var key in filteredBaseUrlsToCopy.Keys)
 			{
-				var key = kvPair.Key; // s/b emailaddress+instanceId in Path format
-				var sourceDirGuidString = Path.Combine(options.SyncFolder, key);
+				// key is the base url to copy
+				var decodedKey = DecodeBaseUrl(key); // decode base url into [email, instanceId, title] array
+				var sourceDirGuidString = Path.Combine(options.SyncFolder, decodedKey[0], decodedKey[1]);
 				if (!Directory.Exists(sourceDirGuidString))
 				{
 					// For some unknown reason, the parsedb record exists, but the book is missing on Amazon S3?
@@ -185,7 +232,7 @@ namespace BloomBulkDownloader
 					notFoundDirs.Add(sourceDirGuidString);
 					continue;
 				}
-				var destinationBookFolder = Path.Combine(destination, filteredInstanceIds[key].Item1);
+				var destinationBookFolder = Path.Combine(destination, filteredBaseUrlsToCopy[key].Item1);
 				fileCount = CopyOneBook(fileCount, sourceDirGuidString, destinationBookFolder, ref bookCount);
 			}
 			Console.WriteLine("\nBooks copied: " + bookCount + "  Files copied: " + fileCount);
@@ -195,6 +242,14 @@ namespace BloomBulkDownloader
 				Console.WriteLine("  " + missingDir);
 			}
 			return 0;
+		}
+
+		private static string[] DecodeBaseUrl(string baseUrl)
+		{
+			// decode base url into an array -> [email, instanceId, title]
+			var strippedResult = HttpUtility.UrlDecode(baseUrl.Substring(baseUrl.LastIndexOf('/') + 1));
+
+			return strippedResult.Split('/');
 		}
 
 		private static int CopyOneBook(int fileCount, string directory, string destinationBookFolder, ref int bookCount)
