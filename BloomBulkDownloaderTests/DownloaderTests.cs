@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using BloomBulkDownloader;
+using RestSharp.Extensions.MonoHttp;
 
 namespace BloomBulkDownloaderTests
 {
@@ -13,9 +14,13 @@ namespace BloomBulkDownloaderTests
 		private readonly ParseUploader _testUploader1;
 		private readonly ParseUploader _testUploader2;
 		private readonly ParseLanguage _testLanguage;
+		private readonly DateTime _oct102015;
+		private readonly DateTime _jan012017;
 
 		public DownloaderTests()
 		{
+			_oct102015 = new DateTime(2015, 10, 10);
+			_jan012017 = new DateTime(2017, 01, 01);
 			_testUploader1 = new ParseUploader {Email = "somebody@gmail.com"};
 			_testUploader2 = new ParseUploader {Email = "somebodyelse@gmail.com"};
 			_testLanguage = new ParseLanguage
@@ -141,14 +146,15 @@ namespace BloomBulkDownloaderTests
 			// SUT
 			var listOfBooks = BulkDownload.GetFilteredListOfBooksToCopy(opts);
 			Assert.That(listOfBooks.Keys.Count, Is.EqualTo(3));
-			Assert.That(listOfBooks.First().Key, Is.EqualTo(_testUploader1.Email + "\\" + _testParseRecords[0].InstanceId));Assert.That(listOfBooks.First().Value.Item1, Is.EqualTo("Box test"));
+			Assert.That(listOfBooks.First().Value.Item1, Is.EqualTo("Box test"));
 			Assert.That(listOfBooks.First().Value.Item2, Is.EqualTo(_testUploader1.Email));
-			Assert.That(listOfBooks.Last().Key, Is.EqualTo(_testUploader2.Email + "\\" + _testParseRecords[2].InstanceId));
-			var expected = new Tuple<string, string>("Other test_somebody@gmail.com", "somebody@gmail.com");
-			Assert.That(listOfBooks[_testUploader1.Email + "\\" + _testParseRecords[1].InstanceId],
+			Assert.That(listOfBooks.First().Value.Item3, Is.EqualTo(_oct102015));
+			var expected = new Tuple<string, string, DateTime>("Other test_somebody@gmail.com", "somebody@gmail.com", _oct102015);
+			Assert.That(listOfBooks[CreateBaseUrl(_testUploader1.Email, _testParseRecords[1].InstanceId, _testParseRecords[1].Title)],
 				Is.EqualTo(expected));
 			Assert.That(listOfBooks.Last().Value.Item1, Is.EqualTo("Other test_somebodyelse@gmail.com"));
 			Assert.That(listOfBooks.Last().Value.Item2, Is.EqualTo(_testUploader2.Email));
+			Assert.That(listOfBooks.Last().Value.Item3, Is.EqualTo(_jan012017));
 		}
 
 		private IEnumerable<DownloaderParseRecord> TestParseDbDelegate(BulkDownloadOptions options)
@@ -158,14 +164,17 @@ namespace BloomBulkDownloaderTests
 
 		private void SetupParseRecordsTwoWithSameInstanceId()
 		{
+
 			var parseRec1 = new DownloaderParseRecord
 			{
 				InCirculation = true,
 				InstanceId = "09f5edbe-6259-471e-88ea-e409113ddfb3",
 				Title = "\nBox\ntest\n", // Tests Title sanitization
 				Uploader = _testUploader1,
+				LastUpdated = _oct102015,
 				Languages = new List<ParseLanguage> { _testLanguage }
 			};
+			parseRec1.BaseUrl = CreateBaseUrl(_testUploader1.Email, parseRec1.InstanceId, parseRec1.Title);
 			_testParseRecords.Add(parseRec1);
 			var parseRec2 = new DownloaderParseRecord
 			{
@@ -173,8 +182,10 @@ namespace BloomBulkDownloaderTests
 				InstanceId = "0612f158-2143-4767-b8a0-b83b32266810",
 				Title = "Other test",
 				Uploader = _testUploader1,
+				LastUpdated = _oct102015,
 				Languages = new List<ParseLanguage> { _testLanguage }
 			};
+			parseRec2.BaseUrl = CreateBaseUrl(_testUploader1.Email, parseRec2.InstanceId, parseRec2.Title);
 			_testParseRecords.Add(parseRec2);
 			var parseRec3 = new DownloaderParseRecord
 			{
@@ -182,9 +193,44 @@ namespace BloomBulkDownloaderTests
 				InstanceId = "0612f158-2143-4767-b8a0-b83b32266810", // same instance and title as record 2, different uploader
 				Title = "Other test",
 				Uploader = _testUploader2,
+				LastUpdated = _oct102015,
 				Languages = new List<ParseLanguage> { _testLanguage }
 			};
+			parseRec3.BaseUrl = CreateBaseUrl(_testUploader2.Email, parseRec3.InstanceId, parseRec3.Title);
 			_testParseRecords.Add(parseRec3);
+			var parseRec4 = new DownloaderParseRecord
+			{
+				InCirculation = true,
+				InstanceId = "0612f158-2143-4767-b8a0-b83b32266810", // same instance, title, and uploader as record 3, later update time
+				Title = "Other test",
+				Uploader = _testUploader2,
+				LastUpdated = _jan012017,
+				Languages = new List<ParseLanguage> { _testLanguage }
+			};
+			parseRec4.BaseUrl = CreateBaseUrl(_testUploader2.Email, parseRec4.InstanceId, parseRec4.Title);
+			_testParseRecords.Add(parseRec4);
+		}
+
+		private string CreateBaseUrl(string email, string instanceId, string title)
+		{
+			// Constructs a simulated BaseUrl for our test record
+
+			const string baseUrlPrefix = "https://s3.amazonaws.com/BloomLibraryBooks/";
+
+			return baseUrlPrefix + HttpUtility.UrlEncode(email + "/" + instanceId + "/" + title + "/");
+		}
+
+		[Test]
+		public void EncodedCharacters_SchwaBarredI()
+		{
+			const string bookTitle = "Sam,\u00a0Təmuwɨn mə Tarupən";
+			const string baseUrl = "https://s3.amazonaws.com/BloomLibraryBooks/test_address%40sil.org%2f9e53c93f-8639-4b54-8f96-21df83a21520%2fSam%2c%c2%a0T%c9%99muw%c9%a8n+m%c9%99+Tarup%c9%99n%2f";
+
+			// SUT
+			var result = BulkDownload.DecodeBaseUrl(baseUrl);
+			Assert.That(result[0], Is.EqualTo("test_address@sil.org"));
+			Assert.That(result[1], Is.EqualTo("9e53c93f-8639-4b54-8f96-21df83a21520"));
+			Assert.That(result[2], Is.EqualTo(bookTitle));
 		}
 	}
 }
