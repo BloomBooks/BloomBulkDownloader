@@ -221,7 +221,9 @@ namespace BloomBulkDownloader
 			{
 				// key is the base url to copy
 				var decodedKey = DecodeBaseUrl(key); // decode base url into [email, instanceId, title] array
-				var sourceDirGuidString = Path.Combine(options.SyncFolder, decodedKey[0], decodedKey[1]);
+				// In the case of a TrialRun, the SyncFolder already includes the email address
+				var baseSourcePath = options.TrialRun ? options.SyncFolder : Path.Combine(options.SyncFolder, decodedKey[0]);
+				var sourceDirGuidString = Path.Combine(baseSourcePath, decodedKey[1]);
 				if (!Directory.Exists(sourceDirGuidString))
 				{
 					// For some unknown reason, the parsedb record exists, but the book is missing on Amazon S3?
@@ -233,10 +235,13 @@ namespace BloomBulkDownloader
 				fileCount = CopyOneBook(fileCount, sourceDirGuidString, destinationBookFolder, ref bookCount);
 			}
 			Console.WriteLine("\nBooks copied: " + bookCount + "  Files copied: " + fileCount);
-			Console.WriteLine("\nThe following books were found inCirculation on the parsedb, but Amazon S3 didn't have them:");
-			foreach (var missingDir in notFoundDirs)
+			if (notFoundDirs.Count > 0)
 			{
-				Console.WriteLine("  " + missingDir);
+				Console.WriteLine("\nThe following books were found inCirculation on the parsedb, but Amazon S3 didn't have them:");
+				foreach (var missingDir in notFoundDirs)
+				{
+					Console.WriteLine("  " + missingDir);
+				}
 			}
 			return 0;
 		}
