@@ -128,13 +128,14 @@ namespace BloomBulkDownloader
 			{
 				if (options.TrialRun && parseRecord.Uploader.Email != options.TrialEmail)
 					continue;
-				if (filteredBooks.TryGetValue(parseRecord.Title, out List<DownloaderParseRecord> listMatchingThisTitle))
+				// Use Title.ToLowerInvariant() since Windows foldernames are case insensitive.
+				if (filteredBooks.TryGetValue(parseRecord.Title.ToLowerInvariant(), out List<DownloaderParseRecord> listMatchingThisTitle))
 				{
 					listMatchingThisTitle.Add(parseRecord);
 				}
 				else
 				{
-					filteredBooks.Add(parseRecord.Title, new List<DownloaderParseRecord> {parseRecord});
+					filteredBooks.Add(parseRecord.Title.ToLowerInvariant(), new List<DownloaderParseRecord> {parseRecord});
 				}
 			}
 
@@ -201,12 +202,12 @@ namespace BloomBulkDownloader
 
 		private static void ReportSameBaseUrlFound(DownloaderParseRecord parseRecord)
 		{
-			Console.WriteLine("Duplicate book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email + " was found by baseUrl on S3.\n  Copying only the most recently one.");
+			Console.Error.WriteLine("Duplicate book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email + " was found by baseUrl on S3.\n  Copying only the most recently one.");
 		}
 
 		private static void ReportMissingBookOnS3(DownloaderParseRecord parseRecord)
 		{
-			Console.WriteLine("Book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email + " has no BaseUrl and can't be copied.");
+			Console.Error.WriteLine("Book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email + " has no BaseUrl and can't be copied.");
 		}
 
 		private static int CopyMatchingBooksToFinalDestination(BulkDownloadOptions options, IDictionary<string, Tuple<string, string, DateTime>> filteredBaseUrlsToCopy)
@@ -237,10 +238,10 @@ namespace BloomBulkDownloader
 			Console.WriteLine("\nBooks copied: " + bookCount + "  Files copied: " + fileCount);
 			if (notFoundDirs.Count > 0)
 			{
-				Console.WriteLine("\nThe following books were found inCirculation on the parsedb, but Amazon S3 didn't have them:");
+				Console.Error.WriteLine("\nThe following books were found inCirculation on the parsedb, but Amazon S3 didn't have them:");
 				foreach (var missingDir in notFoundDirs)
 				{
-					Console.WriteLine("  " + missingDir);
+					Console.Error.WriteLine("  " + missingDir);
 				}
 			}
 			return 0;
@@ -276,9 +277,16 @@ namespace BloomBulkDownloader
 			var bookToCopyPath = Directory.EnumerateDirectories(instanceIdFolder).First();
 			if (Directory.Exists(destinationBookFolder))
 			{
-				Console.WriteLine("Failed to copy from folder " + Path.GetFileName(instanceIdFolder) +
-				                  " because destination " + destinationBookFolder + " already existed");
-				return 0; // something is wrong here.
+				Console.Error.WriteLine("When copying from folder " + Path.GetFileName(instanceIdFolder) +
+				                  " destination " + destinationBookFolder + " already existed; disambiguating...");
+				try
+				{
+					destinationBookFolder = GetUniqueDestinationFolder(destinationBookFolder);
+				}
+				catch (ApplicationException)
+				{
+					return 0;
+				}
 			}
 			Directory.CreateDirectory(destinationBookFolder);
 			var boolFileCount = 0;
@@ -291,14 +299,30 @@ namespace BloomBulkDownloader
 				{
 					RobustFile.Copy(fileToCopy, Path.Combine(destinationBookFolder, fileName));
 				}
+				// The one case we've found that causes this is an empty thumbnail.png file in the book.
 				catch (ArgumentException e)
 				{
-					Console.WriteLine("\nArgumentException copying '" + fileToCopy + "'. " + e.Message);
+					Console.Error.WriteLine("\nArgumentException copying '" + fileToCopy + "'. " + e.Message);
 					continue; // We've reported the problem, skip the file
 				}
 				boolFileCount++;
 			}
 			return boolFileCount;
+		}
+
+		private static string GetUniqueDestinationFolder(string destinationBookFolder)
+		{
+			var digit = 1;
+			while (digit < 10 && Directory.Exists(destinationBookFolder + "_" + digit))
+			{
+				digit++;
+			}
+			if (digit == 10)
+			{
+				Console.Error.WriteLine("Too many identically titled books by the same uploader: " + destinationBookFolder);
+				throw new ApplicationException("Too many identical books"); // caught above
+			}
+			return destinationBookFolder + "_" + digit;
 		}
 
 		private static IEnumerable<DownloaderParseRecord> GetParseDbBooksInCirculation(BulkDownloadOptions options)
