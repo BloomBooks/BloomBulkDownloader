@@ -1,10 +1,13 @@
 ﻿using System;
+using System.IO;
 using CommandLine;
 
 namespace BloomBulkDownloader
 {
 	class Program
 	{
+		private const string ErrorFile = "problems.txt";
+
 		static int Main(string[] args)
 		{
 			if (args.Length > 0)
@@ -15,6 +18,11 @@ namespace BloomBulkDownloader
 				{
 					var result = BulkDownload.Handle(parsed.Value);
 					Console.WriteLine(result == 0 ? "Success!" : "Failed!");
+					var errorFile = Path.Combine(parsed.Value.FinalDestinationPath, ErrorFile);
+					if (File.Exists(errorFile))
+					{
+						Console.WriteLine("There were problems. See " + errorFile);
+					}
 					WaitForInput();
 					return result;
 				}

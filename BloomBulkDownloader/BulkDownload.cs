@@ -26,16 +26,19 @@ namespace BloomBulkDownloader
 
 		public static ParseDbDelegate GetParseDbBooks { private get; set; }
 
+		private const string ErrorFile = "problems.txt";
+		private static string _pubFolder;
+
 		public static int Handle(BulkDownloadOptions options)
 		{
 			// This task will be all the program does. We need to do enough setup so that
 			// the download code can work.
 			try
 			{
+				_pubFolder = options.FinalDestinationPath;
 				if (!options.SkipDownload)
 				{
-					Console.WriteLine("Commencing download from: " + options.S3BucketName +
-					                  " to: " + options.FinalDestinationPath);
+					Console.WriteLine("Commencing download from: " + options.S3BucketName + " to: " + _pubFolder);
 					Console.WriteLine("\nPreparing to sync local bucket repo");
 					var cmdline = GetSyncCommandLineArgsFromOptions(options);
 					if (!Directory.Exists(options.SyncFolder))
@@ -66,13 +69,13 @@ namespace BloomBulkDownloader
 						return 0;
 					}
 				}
-				if (Directory.Exists(options.FinalDestinationPath))
+				if (Directory.Exists(_pubFolder))
 				{
-					Console.WriteLine("\nEmptying out previously used directory: " + options.FinalDestinationPath);
-					RobustIO.DeleteDirectory(options.FinalDestinationPath, true);
+					Console.WriteLine("\nEmptying out previously used directory: " + _pubFolder);
+					RobustIO.DeleteDirectory(_pubFolder, true);
 				}
-				Console.WriteLine("\nCreating clean empty directory at: " + options.FinalDestinationPath);
-				Directory.CreateDirectory(options.FinalDestinationPath);
+				Console.WriteLine("\nCreating clean empty directory at: " + _pubFolder);
+				Directory.CreateDirectory(_pubFolder);
 
 				GetParseDbBooks = GetParseDbBooksInCirculation; // Set production delegate
 
@@ -202,19 +205,20 @@ namespace BloomBulkDownloader
 
 		private static void ReportSameBaseUrlFound(DownloaderParseRecord parseRecord)
 		{
-			Console.Error.WriteLine("Duplicate book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email + " was found by baseUrl on S3.\n  Copying only the most recently one.");
+			AddErrorMessageToProblemFile("Duplicate book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email +
+			                  " was found by baseUrl on S3.\n  Copying only the most recently one.");
 		}
 
 		private static void ReportMissingBookOnS3(DownloaderParseRecord parseRecord)
 		{
-			Console.Error.WriteLine("Book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email + " has no BaseUrl and can't be copied.");
+			AddErrorMessageToProblemFile("Book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email +
+			                  " has no BaseUrl and can't be copied.");
 		}
 
 		private static int CopyMatchingBooksToFinalDestination(BulkDownloadOptions options, IDictionary<string, Tuple<string, string, DateTime>> filteredBaseUrlsToCopy)
 		{
-			// Copy to 'destination' folder all folders inside of folders whose names match one of the 'filteredBaseUrlsToCopy'.
-			var destination = options.FinalDestinationPath;
-			Console.WriteLine("\nStarting filtered copy to " + destination);
+			// Copy to '_pubFolder' folder all folders inside of folders whose names match one of the 'filteredBaseUrlsToCopy'.
+			Console.WriteLine("\nStarting filtered copy to " + _pubFolder);
 			var notFoundDirs = new List<string>();
 			var fileCount = 0;
 			var bookCount = 0;
@@ -232,19 +236,31 @@ namespace BloomBulkDownloader
 					notFoundDirs.Add(sourceDirGuidString);
 					continue;
 				}
-				var destinationBookFolder = Path.Combine(destination, filteredBaseUrlsToCopy[key].Item1);
+				var destinationBookFolder = Path.Combine(_pubFolder, filteredBaseUrlsToCopy[key].Item1);
 				fileCount = CopyOneBook(fileCount, sourceDirGuidString, destinationBookFolder, ref bookCount);
 			}
 			Console.WriteLine("\nBooks copied: " + bookCount + "  Files copied: " + fileCount);
 			if (notFoundDirs.Count > 0)
 			{
-				Console.Error.WriteLine("\nThe following books were found inCirculation on the parsedb, but Amazon S3 didn't have them:");
+				var errorMsg = "\nThe following books were found inCirculation on the parsedb, but Amazon S3 didn't have them:\n";
 				foreach (var missingDir in notFoundDirs)
 				{
-					Console.Error.WriteLine("  " + missingDir);
+					errorMsg += "  " + missingDir + "\n";
 				}
+				AddErrorMessageToProblemFile(errorMsg);
 			}
 			return 0;
+		}
+
+		private static void AddErrorMessageToProblemFile(string errorMsg)
+		{
+			if (string.IsNullOrEmpty(_pubFolder))
+			{
+				// happens in tests
+				return;
+			}
+			var filename = Path.Combine(_pubFolder, ErrorFile);
+			File.AppendAllText(filename, errorMsg + "\n");
 		}
 
 		/// <summary>
@@ -277,7 +293,7 @@ namespace BloomBulkDownloader
 			var bookToCopyPath = Directory.EnumerateDirectories(instanceIdFolder).First();
 			if (Directory.Exists(destinationBookFolder))
 			{
-				Console.Error.WriteLine("When copying from folder " + Path.GetFileName(instanceIdFolder) +
+				AddErrorMessageToProblemFile("When copying from folder " + Path.GetFileName(instanceIdFolder) +
 				                  " destination " + destinationBookFolder + " already existed; disambiguating...");
 				try
 				{
@@ -302,7 +318,7 @@ namespace BloomBulkDownloader
 				// The one case we've found that causes this is an empty thumbnail.png file in the book.
 				catch (ArgumentException e)
 				{
-					Console.Error.WriteLine("\nArgumentException copying '" + fileToCopy + "'. " + e.Message);
+					AddErrorMessageToProblemFile("ArgumentException copying '" + fileToCopy + "'. " + e.Message);
 					continue; // We've reported the problem, skip the file
 				}
 				boolFileCount++;
@@ -319,7 +335,7 @@ namespace BloomBulkDownloader
 			}
 			if (digit == 10)
 			{
-				Console.Error.WriteLine("Too many identically titled books by the same uploader: " + destinationBookFolder);
+				AddErrorMessageToProblemFile("Too many identically titled books by the same uploader: " + destinationBookFolder);
 				throw new ApplicationException("Too many identical books"); // caught above
 			}
 			return destinationBookFolder + "_" + digit;
