@@ -27,3 +27,7 @@ node_modules
 build/*.dll
 
 lib/dotnet/
+
+BloomBulkDownloaderTests/x86/
+
+BloomBulkDownloader/x86/

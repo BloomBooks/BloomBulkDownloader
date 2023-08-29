@@ -53,9 +53,9 @@ namespace BloomBulkDownloaderTests
 			};
 
 			// Verify some initial settings
-			Assert.IsFalse(opts.TrialRun);
+			Assert.IsFalse(opts.OneUserOnly);
 			Assert.IsFalse(opts.DryRun);
-			Assert.That(opts.TrialEmail, Is.EqualTo(string.Empty));
+			Assert.That(opts.UserEmail, Is.EqualTo(string.Empty));
 			Assert.That(opts.ParseServer, Is.EqualTo("https://bloom-parse-server-develop.azurewebsites.net"));
 
 			// SUT
@@ -75,9 +75,9 @@ namespace BloomBulkDownloaderTests
 			};
 
 			// Verify some initial settings
-			Assert.IsFalse(opts.TrialRun);
+			Assert.IsFalse(opts.OneUserOnly);
 			Assert.IsFalse(opts.DryRun);
-			Assert.That(opts.TrialEmail, Is.EqualTo(string.Empty));
+			Assert.That(opts.UserEmail, Is.EqualTo(string.Empty));
 			Assert.That(opts.ParseServer, Is.EqualTo("https://bloom-parse-server-production.azurewebsites.net"));
 
 			// SUT
@@ -93,14 +93,14 @@ namespace BloomBulkDownloaderTests
 			var opts = new BulkDownloadOptions
 			{
 				Bucket = BulkDownloadOptions.BucketCategory.sandbox,
-				DryRun = true, TrialRun = true,
+				DryRun = true, UserEmail = "gordon_martin@sil.org",
 				BaseSyncFolder = "testFolder"
 			};
 
 			// Verify some initial settings
-			Assert.IsTrue(opts.TrialRun);
+			Assert.IsTrue(opts.OneUserOnly);
 			Assert.IsTrue(opts.DryRun);
-			Assert.That(opts.TrialEmail, Is.EqualTo("gordon_martin@sil.org"));
+			Assert.That(opts.UserEmail, Is.EqualTo("gordon_martin@sil.org"));
 			Assert.That(opts.ParseServer, Is.EqualTo("https://bloom-parse-server-develop.azurewebsites.net"));
 
 			// SUT
@@ -116,14 +116,15 @@ namespace BloomBulkDownloaderTests
 			var opts = new BulkDownloadOptions
 			{
 				Bucket = BulkDownloadOptions.BucketCategory.production,
-				DryRun = true, TrialRun = true,
+				DryRun = true,
+				UserEmail = "gordon_martin@sil.org",
 				BaseSyncFolder = "testFolder"
 			};
 
 			// Verify some initial settings
-			Assert.IsTrue(opts.TrialRun);
+			Assert.IsTrue(opts.OneUserOnly);
 			Assert.IsTrue(opts.DryRun);
-			Assert.That(opts.TrialEmail, Is.EqualTo("gordon_martin@sil.org"));
+			Assert.That(opts.UserEmail, Is.EqualTo("gordon_martin@sil.org"));
 			Assert.That(opts.ParseServer, Is.EqualTo("https://bloom-parse-server-production.azurewebsites.net"));
 
 			// SUT

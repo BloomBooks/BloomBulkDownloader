@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using CommandLine;
 
@@ -21,8 +21,8 @@ namespace BloomBulkDownloader
 		[Option('b', "bucket", HelpText = "S3 bucket to sync with (values are: 'sandbox', or 'production').", Required = true)]
 		public BucketCategory Bucket { get; set; }
 
-		[Option('t', "trial", HelpText = "Just do a trial run of files for one user.", Required = false)]
-		public bool TrialRun { get; set; }
+		[Option('u', "user", HelpText = "Just do a trial run of files for one user. Provide their email.", Required = false)]
+		public string UserEmail { get; set; }
 
 		[Option('d', "dryrun", HelpText = "List files synced to console, but don't actually download. Skips the second phase of copying filtered files to final destination.", Required = false)]
 		public bool DryRun { get; set; }
@@ -30,6 +30,7 @@ namespace BloomBulkDownloader
 		[Option('s', "skipS3", HelpText = "Skip the S3 download (Phase 1). Only do the second phase of copying filtered files to final destination.", Required = false)]
 		public bool SkipDownload { get; set; }
 
+		public bool OneUserOnly { get { return !string.IsNullOrEmpty(UserEmail); } }
 		public string S3BucketName
 		{
 			get
@@ -76,9 +77,9 @@ namespace BloomBulkDownloader
 					case BucketCategory.undefined:
 						break;
 					case BucketCategory.production:
-						if (TrialRun)
+						if (!string.IsNullOrEmpty(UserEmail))
 						{
-							return Path.Combine(BaseSyncFolder, TrialEmail);
+							return Path.Combine(BaseSyncFolder, UserEmail);
 						}
 						else
 						{
@@ -86,9 +87,9 @@ namespace BloomBulkDownloader
 						}
 					case BucketCategory.sandbox:
 						var folder = BaseSyncFolder + "-sandbox";
-						if (TrialRun)
+						if (!string.IsNullOrEmpty(UserEmail))
 						{
-							return Path.Combine(folder, TrialEmail);
+							return Path.Combine(folder, UserEmail);
 						}
 						else
 						{
@@ -164,32 +165,6 @@ namespace BloomBulkDownloader
 						return restApiKeySandbox;
 				}
 				throw new ApplicationException("Trying to read RestApiKey before Bucket category is defined...");
-			}
-		}
-
-		/// <summary>
-		/// Get the appropriate Email address for a trial run (Production or Sandbox).
-		/// </summary>
-		public string TrialEmail
-		{
-			get
-			{
-				const string trialEmail = "gordon_martin@sil.org";
-
-				if (!TrialRun)
-				{
-					return string.Empty;
-				}
-
-				switch (Bucket)
-				{
-					case BucketCategory.undefined:
-						break;
-					case BucketCategory.production:
-					case BucketCategory.sandbox:
-						return trialEmail;
-				}
-				throw new ApplicationException("Trying to read TrialEmail before Bucket category is defined...");
 			}
 		}
 	}

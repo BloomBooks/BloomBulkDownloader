@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using RestSharp;
 using RestSharp.Extensions.MonoHttp;
 using SIL.IO;
+using Spart.Parsers;
 
 namespace BloomBulkDownloader
 {
@@ -72,7 +73,7 @@ namespace BloomBulkDownloader
 				if (Directory.Exists(_pubFolder))
 				{
 					Console.WriteLine("\nEmptying out previously used directory: " + _pubFolder);
-					RobustIO.DeleteDirectory(_pubFolder, true);
+					SIL.IO.RobustIO.DeleteDirectory(_pubFolder, true);
 				}
 				Console.WriteLine("\nCreating clean empty directory at: " + _pubFolder);
 				Directory.CreateDirectory(_pubFolder);
@@ -100,12 +101,12 @@ namespace BloomBulkDownloader
 		public static string GetSyncCommandLineArgsFromOptions(BulkDownloadOptions opts)
 		{
 			var cmdLineArgs = "s3 sync s3://";
-			cmdLineArgs += opts.S3BucketName;
-			if (opts.TrialRun)
+			cmdLineArgs += opts.S3BucketName; // source
+			if (opts.OneUserOnly)
 			{
-				cmdLineArgs += "/" + opts.TrialEmail;
+				cmdLineArgs += "/" + opts.UserEmail;
 			}
-			cmdLineArgs += " " + opts.SyncFolder;
+			cmdLineArgs += " " + opts.SyncFolder; // target
 			if (opts.DryRun)
 			{
 				cmdLineArgs += " --dryrun";
@@ -129,7 +130,7 @@ namespace BloomBulkDownloader
 			// Further filter if we are doing a trial run.
 			foreach (var parseRecord in records)
 			{
-				if (options.TrialRun && parseRecord.Uploader.Email != options.TrialEmail)
+				if (options.OneUserOnly && parseRecord.Uploader.Email != options.UserEmail)
 					continue;
 				// Use Title.ToLowerInvariant() since Windows foldernames are case insensitive.
 				if (filteredBooks.TryGetValue(parseRecord.Title.ToLowerInvariant(), out List<DownloaderParseRecord> listMatchingThisTitle))
@@ -138,7 +139,7 @@ namespace BloomBulkDownloader
 				}
 				else
 				{
-					filteredBooks.Add(parseRecord.Title.ToLowerInvariant(), new List<DownloaderParseRecord> {parseRecord});
+					filteredBooks.Add(parseRecord.Title.ToLowerInvariant(), new List<DownloaderParseRecord> { parseRecord });
 				}
 			}
 
@@ -206,13 +207,13 @@ namespace BloomBulkDownloader
 		private static void ReportSameBaseUrlFound(DownloaderParseRecord parseRecord)
 		{
 			AddErrorMessageToProblemFile("Duplicate book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email +
-			                  " was found by baseUrl on S3.\n  Copying only the most recently one.");
+							  " was found by baseUrl on S3.\n  Copying only the most recently one.");
 		}
 
 		private static void ReportMissingBookOnS3(DownloaderParseRecord parseRecord)
 		{
 			AddErrorMessageToProblemFile("Book '" + parseRecord.Title + "' uploaded by " + parseRecord.Uploader.Email +
-			                  " has no BaseUrl and can't be copied.");
+							  " has no BaseUrl and can't be copied.");
 		}
 
 		private static int CopyMatchingBooksToFinalDestination(BulkDownloadOptions options, IDictionary<string, Tuple<string, string, DateTime>> filteredBaseUrlsToCopy)
@@ -226,8 +227,8 @@ namespace BloomBulkDownloader
 			{
 				// key is the base url to copy
 				var decodedKey = DecodeBaseUrl(key); // decode base url into [email, instanceId, title] array
-				// In the case of a TrialRun, the SyncFolder already includes the email address
-				var baseSourcePath = options.TrialRun ? options.SyncFolder : Path.Combine(options.SyncFolder, decodedKey[0]);
+													 // In the case of a TrialRun, the SyncFolder already includes the email address
+				var baseSourcePath = options.OneUserOnly ? options.SyncFolder : Path.Combine(options.SyncFolder, decodedKey[0]);
 				var sourceDirGuidString = Path.Combine(baseSourcePath, decodedKey[1]);
 				if (!Directory.Exists(sourceDirGuidString))
 				{
@@ -294,7 +295,7 @@ namespace BloomBulkDownloader
 			if (Directory.Exists(destinationBookFolder))
 			{
 				AddErrorMessageToProblemFile("When copying from folder " + Path.GetFileName(instanceIdFolder) +
-				                  " destination " + destinationBookFolder + " already existed; disambiguating...");
+								  " destination " + destinationBookFolder + " already existed; disambiguating...");
 				try
 				{
 					destinationBookFolder = GetUniqueDestinationFolder(destinationBookFolder);
