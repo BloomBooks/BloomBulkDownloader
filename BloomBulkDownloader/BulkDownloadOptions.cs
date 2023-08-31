@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using CommandLine;
 
@@ -29,6 +29,9 @@ namespace BloomBulkDownloader
 
 		[Option('s', "skipS3", HelpText = "Skip the S3 download (Phase 1). Only do the second phase of copying filtered files to final destination.", Required = false)]
 		public bool SkipDownload { get; set; }
+
+		[Option('i', "include", HelpText = "File filter", Required = false)]
+		public string IncludeFilter { get; set; }
 
 		public bool OneUserOnly { get { return !string.IsNullOrEmpty(UserEmail); } }
 		public string S3BucketName

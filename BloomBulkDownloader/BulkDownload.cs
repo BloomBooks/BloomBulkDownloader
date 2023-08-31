@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -111,6 +111,15 @@ namespace BloomBulkDownloader
 			{
 				cmdLineArgs += " --dryrun";
 			}
+
+			if (!string.IsNullOrWhiteSpace(opts.IncludeFilter))
+			{
+				cmdLineArgs += " --exclude \"*\"";
+				cmdLineArgs += $" --include \"{opts.IncludeFilter}\" ";
+			}
+
+			cmdLineArgs += " --debug ";
+
 			return cmdLineArgs;
 		}
 

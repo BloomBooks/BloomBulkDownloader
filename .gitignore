@@ -31,3 +31,6 @@ lib/dotnet/
 BloomBulkDownloaderTests/x86/
 
 BloomBulkDownloader/x86/
+sync-sandbox/
+sync/
+unique/
